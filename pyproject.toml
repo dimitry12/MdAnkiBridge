@@ -1,0 +1,12 @@
+[project]
+name = "MarkdownAnkipy"
+version = "0.1.0"
+description = "Python CLI to sync between Anki and Markdown files and directories"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "anki>=25.2",
+    "dotenv>=0.9.9",
+    "fire>=0.7.0",
+    "markdown-it-py>=3.0.0",
+]
