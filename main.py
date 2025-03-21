@@ -38,18 +38,12 @@ def extract_headings(tokens):
                     "raw_content": content,  # Original heading content
                     "strippped_content": None,
                     "tags": [],
-                    "sync_id": None,
                     "verbatim_content": [],  # added this property
                 }
 
                 # Extract tags (#tag or #tag1/tag2)
                 heading["tags"] = re.findall(r"#([\w\d_\/]+)", content)
                 heading["tags"] = [tag.replace("/", "::") for tag in heading["tags"]]
-
-                # Extract Markdown Extra custom attribute { sync_id=xxx }
-                attr_match = re.search(r"{\s*anki_note=([\w-]+)\s*}", content)
-                if attr_match:
-                    heading["sync_id"] = attr_match.group(1)
 
                 stripped_content = content
                 stripped_content = re.sub(r"{.*}", "", stripped_content)
@@ -102,18 +96,58 @@ def attach_verbatim_content(lines, headings):
     return headings
 
 
-def insert_sync_id(lines, heading, sync_id):
-    """Insert `{ sync_id=ID }` at the end of the heading line"""
+def get_heading_attributes(lines, heading):
+    """
+    Extract attribute key-value pairs from a Markdown Extra attributes block.
+
+    Args:
+        lines: list of markdown file lines
+        heading: dict with 'start_line' indicating the heading position
+
+    Returns:
+        dict of attributes extracted from the heading
+    """
+    attr_dict = {}
+    line_idx = heading["start_line"]
+    line = lines[line_idx]
+
+    # TODO: preserve other non-key-value attributes
+
+    attr_match = re.search(r"\{(.*?)\}\s*$", line.strip())
+    if attr_match:
+        attr_string = attr_match.group(1)
+        # Split attribute pairs, separated by spaces
+        for attr_pair in re.findall(r"(\w+)=([\w\-\_]+)", attr_string):
+            key, value = attr_pair
+            attr_dict[key] = value
+    return attr_dict
+
+
+def set_heading_attributes(lines, heading, new_attrs):
+    """
+    Set heading's attribute markdown block from provided attribute dictionary.
+
+    Args:
+        lines: list of markdown file lines
+        heading: dict with 'start_line' indicating heading position
+        new_attrs: dict of attributes to insert/update in the heading
+
+    Returns:
+        Modified lines with updated attributes for the heading
+    """
     line_idx = heading["start_line"]
     line = lines[line_idx].rstrip("\n")
 
-    # Check if already has attributes {}, append if found or create new block
-    if re.search(r"{.*}$", line):  # if heading already ends with {...} attributes
-        line = re.sub(r"{(.*)}$", rf"{{\1 anki_note={sync_id}}}", line)
-    else:
-        line = f"{line} {{ anki_note={sync_id} }}"
+    # TODO: preserve other non-key-value attributes
 
-    lines[line_idx] = line + "\n"
+    existing_attrs_match = re.search(r"(.*?)(\s*\{.*\}\s*)?$", line)
+    heading_text = existing_attrs_match.group(1).rstrip()
+
+    # Create new attribute string from new_attrs dict
+    attrs_string = " ".join(f"{k}={v}" for k, v in new_attrs.items())
+    new_line = f"{heading_text} {{ {attrs_string} }}\n"
+
+    lines[line_idx] = new_line
     return lines
 
 
@@ -134,28 +168,52 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
 
     for heading in headings:
         if heading["is_leaf"]:
-            if heading["sync_id"]:
-                print("Re-syncing heading with sync_id:", heading["sync_id"])
+            heading_attrs = get_heading_attributes(lines, heading)
 
-                note = col.get_note(int(heading["sync_id"]))
+            if heading_attrs.get("anki_note"):
+                heading_attrs = get_heading_attributes(lines, heading)
+                print("Re-syncing heading with sync_id:", heading_attrs["anki_note"])
+
+                try:
+                    note = col.get_note(int(heading_attrs["anki_note"]))
+                except:
+                    print("Note not found in Anki, skipping sync")
+                    continue
+
+                if note.mod > int(heading_attrs["anki_mod"]):
+                    print("Note is newer in anki, skipping sync")
+                    continue
+
                 note.fields[0] = heading["stripped_content"]
                 note.fields[1] = "".join(heading["verbatim_content"])
                 note.tags = ["_sync_on"] + heading["tags"]
                 col.update_note(note)
+
+                # re-read note to get updated mod
+                # anki updates mod iff content has changed
+                # (i.e. we can resync same content and anki doesn't advance mod)
+                note = col.get_note(int(heading_attrs["anki_note"]))
+
+                heading_attrs["anki_mod"] = str(note.mod)
+                lines = set_heading_attributes(lines, heading, heading_attrs)
             else:
                 note = col.new_note(basic_model)
                 note.fields[0] = heading["stripped_content"]
                 note.fields[1] = "".join(heading["verbatim_content"])
                 note.tags = ["_sync_on"] + heading["tags"]
                 col.add_note(note, deck["id"])
-                print("Syncing new heading with sync_id:", note.id)
-                print("New content:", heading["raw_content"])
+                heading_attrs["anki_note"] = str(note.id)
+                print("Syncing new heading with sync_id:", heading_attrs["anki_note"])
 
-                lines = insert_sync_id(lines, heading, note.id)
-            print("=" * 80)
-            print("Header:", heading["raw_content"])
-            print("Tags:", heading["tags"])
-            print("Content:\n", "".join(heading["verbatim_content"]))
+                note = col.get_note(int(heading_attrs["anki_note"]))
+
+                heading_attrs["anki_mod"] = str(note.mod)
+                lines = set_heading_attributes(lines, heading, heading_attrs)
+
+            # print("=" * 80)
+            # print("Header:", heading["raw_content"])
+            # print("Tags:", heading["tags"])
+            # print("Content:\n", "".join(heading["verbatim_content"]))
 
     write_markdown_file(filepath, lines)
     col.close()
