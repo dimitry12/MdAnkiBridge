@@ -1,0 +1,25 @@
+<script type="module" src="https://cdn.jsdelivr.net/npm/zero-md@3?register"></script>
+
+<script>
+var elem = document.getElementById("tags");
+var content = elem.innerHTML;
+var tags = content.split(" ");
+var newContent = tags.filter(tag => tag!="_sync_on").join(", ");
+elem.innerHTML = newContent;
+</script>
+
+<span id="tags" style="font-size: 0.8em;">{{Tags}}</span>
+
+<zero-md>
+  <script type="text/markdown">
+{{Front}}
+  </script>
+</zero-md>
+
+<hr id=answer>
+
+<zero-md>
+  <script type="text/markdown">
+{{Back}}
+  </script>
+</zero-md>
