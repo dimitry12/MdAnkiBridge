@@ -1,6 +1,7 @@
 from markdown_it import MarkdownIt
 import re
 import fire
+from urllib.parse import urlparse, parse_qs
 
 from anki.collection import Collection
 
@@ -48,7 +49,7 @@ def extract_headings(tokens):
                 stripped_content = content
                 stripped_content = re.sub(r"{.*}", "", stripped_content)
                 stripped_content = re.sub(r"#([\w\d_\/]+)", "", stripped_content)
-                heading["stripped_content"] = stripped_content
+                heading["stripped_content"] = stripped_content.strip()
 
                 headings.append(heading)
     return headings
@@ -85,14 +86,63 @@ def attach_verbatim_content(lines, headings):
         # Determine end line for content
         content_end = total_lines
         for next_heading in headings[idx + 1 :]:
-            if next_heading["level"] <= heading["level"]:
-                content_end = next_heading["start_line"]
-                break
+            # if next_heading["level"] <= heading["level"]:
+            #    content_end = next_heading["start_line"]
+            #    break
+            content_end = next_heading["start_line"]
+            break
 
-        # Only leaf headings get content
-        if heading["is_leaf"]:
-            # Extract lines verbatim, preserve whitespace, line endings.
-            heading["verbatim_content"] = lines[content_start:content_end]
+        # # Only leaf headings get content
+        # if heading["is_leaf"]:
+        #     # Extract lines verbatim, preserve whitespace, line endings.
+        #     heading["verbatim_content"] = lines[content_start:content_end]
+        heading["verbatim_content"] = lines[content_start:content_end]
+        heading["content_start"] = content_start
+        heading["content_end"] = content_end
+    return headings
+
+
+def find_anki_link(lines):
+    anki_link_pattern = re.compile(r"\[anki\]\((mdankibridge://notes/[^\s]*)\)")
+    matches = []
+
+    for idx, content_line in enumerate(lines):
+        match = anki_link_pattern.search(content_line)
+
+        if match:
+            matches.append((idx, match))
+
+    if len(matches) > 1:
+        raise ValueError("Multiple Anki links found in the same heading")
+
+    if len(matches) == 0:
+        return None
+
+    anki_url = matches[0][1].group(1)
+    parsed_url = urlparse(anki_url)
+    query_params = parse_qs(parsed_url.query)
+    id_params = query_params.get("id")
+    mod_params = query_params.get("mod")
+
+    if not id_params or not id_params[0]:
+        raise ValueError("Anki link missing id parameter")
+
+    return matches[0][0], id_params[0], mod_params[0] if mod_params else None
+
+
+def attach_anki_link(headings):
+    for heading in headings:
+        anki_metadata = find_anki_link(heading["verbatim_content"])
+        if anki_metadata:
+            heading_line_idx, anki_id, anki_mod = anki_metadata
+            heading["anki_id"] = anki_id
+            heading["anki_mod"] = anki_mod
+            heading["anki_link_line_idx"] = heading["start_line"] + heading_line_idx + 1
+        else:
+            heading["anki_id"] = None
+            heading["anki_mod"] = None
+            heading["anki_link_line_idx"] = None
+
     return headings
 
 
@@ -165,57 +215,75 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
     headings = extract_headings(tokens)
     headings = mark_leaf_headings(headings)
     headings = attach_verbatim_content(lines, headings)
+    headings = attach_anki_link(headings)
+
+    updated_lines = lines[: headings[0]["start_line"]]
 
     for heading in headings:
-        if heading["is_leaf"]:
-            heading_attrs = get_heading_attributes(lines, heading)
+        if not heading["is_leaf"]:
+            updated_lines += lines[heading["start_line"] : heading["content_end"]]
 
-            if heading_attrs.get("anki_note"):
-                heading_attrs = get_heading_attributes(lines, heading)
-                print("Re-syncing heading with sync_id:", heading_attrs["anki_note"])
+        if heading["anki_id"]:
+            print("Processing heading with sync_id:", heading["anki_id"])
 
-                try:
-                    note = col.get_note(int(heading_attrs["anki_note"]))
-                except:
-                    print("Note not found in Anki, skipping sync")
-                    continue
+            try:
+                note = col.get_note(int(heading["anki_id"]))
+            except:
+                raise ValueError(f"Note with id {heading['anki_id']} not found in Anki")
 
-                if note.mod > int(heading_attrs["anki_mod"]):
-                    print("Note is newer in anki, skipping sync")
-                    continue
+            if heading["anki_mod"] and note.mod > int(heading["anki_mod"]):
+                print("Note is newer in anki, skipping sync")
+            else:
+                if not heading["anki_mod"]:
+                    print("Note has no mod, syncing anyway")
 
+                print("Syncing heading with sync_id:", heading["anki_id"])
                 note.fields[0] = heading["stripped_content"]
                 note.fields[1] = "".join(heading["verbatim_content"])
-                note.tags = ["_sync_on"] + heading["tags"]
+                note.tags = heading["tags"]
                 col.update_note(note)
 
                 # re-read note to get updated mod
                 # anki updates mod iff content has changed
                 # (i.e. we can resync same content and anki doesn't advance mod)
-                note = col.get_note(int(heading_attrs["anki_note"]))
+                note = col.get_note(int(heading["anki_id"]))
 
-                heading_attrs["anki_mod"] = str(note.mod)
-                lines = set_heading_attributes(lines, heading, heading_attrs)
-            else:
-                note = col.new_note(basic_model)
-                note.fields[0] = heading["stripped_content"]
-                note.fields[1] = "".join(heading["verbatim_content"])
-                note.tags = ["_sync_on"] + heading["tags"]
-                col.add_note(note, deck["id"])
-                heading_attrs["anki_note"] = str(note.id)
-                print("Syncing new heading with sync_id:", heading_attrs["anki_note"])
+                heading["anki_mod"] = str(note.mod)
 
-                note = col.get_note(int(heading_attrs["anki_note"]))
+            updated_lines += (
+                lines[heading["start_line"] : heading["anki_link_line_idx"]]
+                + [
+                    f"[anki](mdankibridge://notes/?id={heading['anki_id']}&mod={heading['anki_mod']})\n"
+                ]
+                + lines[heading["anki_link_line_idx"] + 1 : heading["content_end"]]
+            )
+        else:
+            note = col.new_note(basic_model)
+            note.fields[0] = heading["stripped_content"]
+            note.fields[1] = "".join(heading["verbatim_content"])
+            note.tags = heading["tags"]
+            col.add_note(note, deck["id"])
+            heading["anki_id"] = str(note.id)
+            print("Syncing new heading with sync_id:", heading["anki_id"])
 
-                heading_attrs["anki_mod"] = str(note.mod)
-                lines = set_heading_attributes(lines, heading, heading_attrs)
+            note = col.get_note(int(heading["anki_id"]))
 
-            # print("=" * 80)
-            # print("Header:", heading["raw_content"])
-            # print("Tags:", heading["tags"])
-            # print("Content:\n", "".join(heading["verbatim_content"]))
+            heading["anki_mod"] = str(note.mod)
 
-    write_markdown_file(filepath, lines)
+            updated_lines += (
+                lines[heading["start_line"] : heading["end_line"]]
+                + [
+                    f"\n[anki](mdankibridge://notes/?id={heading['anki_id']}&mod={heading['anki_mod']})\n"
+                ]
+                + lines[heading["end_line"] : heading["content_end"]]
+            )
+
+        # print("=" * 80)
+        # print("Header:", heading["raw_content"])
+        # print("Tags:", heading["tags"])
+        # print("Content:\n", "".join(heading["verbatim_content"]))
+
+    write_markdown_file(filepath, updated_lines)
     col.close()
 
 
