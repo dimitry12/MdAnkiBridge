@@ -240,7 +240,11 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
 
                 print("Syncing heading with sync_id:", heading["anki_id"])
                 note.fields[0] = heading["stripped_content"]
-                note.fields[1] = "".join(heading["verbatim_content"])
+                note.fields[1] = "".join(
+                    lines[heading["content_start"] : heading["anki_link_line_idx"]]
+                    + lines[heading["anki_link_line_idx"] + 1 : heading["content_end"]]
+                )
+
                 note.tags = heading["tags"]
                 col.update_note(note)
 
@@ -261,7 +265,9 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
         else:
             note = col.new_note(basic_model)
             note.fields[0] = heading["stripped_content"]
-            note.fields[1] = "".join(heading["verbatim_content"])
+            note.fields[1] = "".join(
+                lines[heading["content_start"] : heading["content_end"]]
+            )
             note.tags = heading["tags"]
             col.add_note(note, deck["id"])
             heading["anki_id"] = str(note.id)

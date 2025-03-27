@@ -127,6 +127,7 @@ def test_new_sync(history_0_collection_path, md_1_path):
 
     assert note is not None
     assert note.fields[0] == "heading title"
+    assert note.fields[1] == "\nsome content\n"
 
     col.close()
 
@@ -173,6 +174,7 @@ def test_md_update(history_0_collection_path, md_2_path):
 
     assert note is not None
     assert note.fields[0] == "heading title"
+    assert note.fields[1] == "\n\nsome content\n"
     assert set(note.tags) == set("tag_a::tag_b tag_c".split())
 
     col.close()
