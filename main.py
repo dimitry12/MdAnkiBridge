@@ -233,6 +233,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
 
             if heading["anki_mod"] and note.mod > int(heading["anki_mod"]):
                 print("Note is newer in anki, skipping sync")
+                raise ValueError("Note is newer in anki, skipping sync")
             else:
                 if not heading["anki_mod"]:
                     print("Note has no mod, syncing anyway")
