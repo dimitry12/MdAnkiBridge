@@ -4,7 +4,6 @@ import fire
 from urllib.parse import urlparse, parse_qs
 from typing import List, Optional, Tuple
 from pydantic import BaseModel, Field
-from dataclasses import dataclass
 
 from anki.collection import Collection
 

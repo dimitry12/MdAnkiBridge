@@ -5,7 +5,7 @@ from anki.collection import Collection
 from main import main
 from main import (
     parse_markdown_headings,
-    attach_anki_link,
+    split_body,
     Heading,
 )
 
@@ -107,7 +107,7 @@ def test_new_sync(history_0_collection_path, md_1_path):
     mdlines, headings = parse_markdown_headings(mdpath)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
-    leaf_headings = attach_anki_link(mdlines, leaf_headings)
+    leaf_headings = split_body(mdlines, leaf_headings)
 
     assert (
         len(mdlines) == old_lines_count + 2
@@ -143,7 +143,7 @@ def test_md_update(history_0_collection_path, md_2_path):
     mdlines, headings = parse_markdown_headings(mdpath)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
-    leaf_headings = attach_anki_link(mdlines, leaf_headings)
+    leaf_headings = split_body(mdlines, leaf_headings)
 
     assert mdlines[1] == "\n", "Newline before the anki-link"
     assert mdlines[3] == "\n", "Newline after the anki-link"
@@ -157,7 +157,7 @@ def test_md_update(history_0_collection_path, md_2_path):
     mdlines, headings = parse_markdown_headings(mdpath)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
-    leaf_headings = attach_anki_link(mdlines, leaf_headings)
+    leaf_headings = split_body(mdlines, leaf_headings)
 
     assert mdlines[1] == "\n", "Newline before the anki-link"
     assert mdlines[3] == "\n", "Newline after the anki-link"
@@ -188,7 +188,7 @@ def test_md_unknown_id(history_0_collection_path, md_4_path):
 
     mdlines, headings = parse_markdown_headings(mdpath)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
-    leaf_headings = attach_anki_link(mdlines, leaf_headings)
+    leaf_headings = split_body(mdlines, leaf_headings)
 
     assert leaf_headings[0].anki_link is not None
     assert leaf_headings[0].anki_link.mod is not None
