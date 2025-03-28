@@ -91,11 +91,6 @@ def mark_leaf_headings(headings):
     return headings
 
 
-def replace_heading_in_lines(lines, heading, new_text):
-    heading_markdown = "#" * heading.level
-    lines[heading.start_line] = f"{heading_markdown} {new_text}\n"
-    return lines
-
 
 def attach_verbatim_content(lines, headings):
     total_lines = len(lines)
