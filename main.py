@@ -251,13 +251,13 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
                 raise ValueError(f"Note with id {heading['anki_id']} not found in Anki")
 
             if heading["anki_mod"] and note.mod > int(heading["anki_mod"]):
-                print("Note is newer in anki, skipping sync")
+                print("    Note is newer in anki, skipping sync")
                 raise ValueError("Note is newer in anki, skipping sync")
             else:
                 if not heading["anki_mod"]:
-                    print("Note has no mod, syncing anyway")
+                    print("    Note has no mod, syncing anyway")
 
-                print("Syncing heading with sync_id:", heading["anki_id"])
+                print("    Syncing heading with sync_id:", heading["anki_id"])
                 note.fields[0] = heading["stripped_content"]
                 note.fields[1] = "".join(
                     lines[heading["content_start"] : heading["anki_link_lines"][0]]
@@ -272,6 +272,8 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
                 # (i.e. we can resync same content and anki doesn't advance mod)
                 note = col.get_note(int(heading["anki_id"]))
 
+                if str(note.mod) == heading["anki_mod"]:
+                    print("    Note is unchanged")
                 heading["anki_mod"] = str(note.mod)
 
             updated_lines += (
