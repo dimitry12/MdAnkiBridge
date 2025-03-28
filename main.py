@@ -40,6 +40,29 @@ class Heading(BaseModel):
     heading_body_end: Optional[int] = None
     anki_link: Optional[AnkiLink] = None
     other_content: Optional[List[str]] = None
+    
+    @property
+    def title_lines(self) -> List[str]:
+        """Generate the formatted title lines with proper heading level and tags."""
+        heading_prefix = "#" * self.level + " "
+        
+        # Format tags as #tag1/tag2 format
+        formatted_tags = []
+        for tag in self.tags:
+            formatted_tag = tag.replace("::", "/")
+            formatted_tags.append(f"#{formatted_tag}")
+        
+        tags_text = " ".join(formatted_tags)
+        
+        # Add space between title and tags if both exist
+        if self.title_text and tags_text:
+            return [f"{heading_prefix}{self.title_text} {tags_text}\n"]
+        elif self.title_text:
+            return [f"{heading_prefix}{self.title_text}\n"]
+        elif tags_text:
+            return [f"{heading_prefix}{tags_text}\n"]
+        else:
+            return [f"{heading_prefix}\n"]
 
 
 def parse_markdown_headings(filepath: str) -> Tuple[List[str], List[Heading]]:
@@ -235,7 +258,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
                 heading.anki_link.mod = str(note.mod)
 
             updated_lines += (
-                lines[heading.heading_start : heading.title_end]
+                heading.title_lines
                 + heading.anki_link.lines
                 + heading.other_content
             )
@@ -256,7 +279,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
             heading.anki_link.mod = str(note.mod)
 
             updated_lines += (
-                lines[heading.heading_start : heading.title_end]
+                heading.title_lines
                 + heading.anki_link.lines
                 + heading.other_content
             )
