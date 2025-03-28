@@ -143,9 +143,9 @@ def find_anki_link(lines):
     )
 
 
-def attach_anki_link(lines, headings):
+def attach_anki_link(lines, headings: list[Heading]):
     for heading in headings:
-        content_lines = lines[heading.title_end:heading.heading_body_end]
+        content_lines = lines[heading.title_end : heading.heading_body_end]
         anki_metadata = find_anki_link(content_lines)
         if anki_metadata:
             first_heading_line_idx, last_heading_line_idx, anki_id, anki_mod = (
@@ -154,8 +154,8 @@ def attach_anki_link(lines, headings):
             heading.anki_id = anki_id
             heading.anki_mod = anki_mod
             heading.anki_link_lines = (
-                first_heading_line_idx + heading.title_end,
-                last_heading_line_idx + 1 + heading.title_end,
+                first_heading_line_idx + heading.heading_start + 1,
+                last_heading_line_idx + 1 + heading.heading_start + 1,
             )
         else:
             heading.anki_id = None
@@ -286,7 +286,9 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
         else:
             note = col.new_note(basic_model)
             note.fields[0] = heading.title_text
-            note.fields[1] = "".join(lines[heading.title_end : heading.heading_body_end])
+            note.fields[1] = "".join(
+                lines[heading.title_end : heading.heading_body_end]
+            )
             note.tags = heading.tags
             col.add_note(note, deck["id"])
             heading.anki_id = str(note.id)
