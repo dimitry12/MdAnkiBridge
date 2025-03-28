@@ -152,7 +152,7 @@ def test_md_update(history_0_collection_path, md_2_path):
     headings = extract_headings(mdtokens)
     headings = mark_leaf_headings(headings)
     headings = attach_verbatim_content(mdlines, headings)
-    leaf_headings = [heading for heading in headings if heading["is_leaf"]]
+    leaf_headings = [heading for heading in headings if heading.is_leaf]
 
     leaf_headings = attach_anki_link(leaf_headings)
 
@@ -170,7 +170,7 @@ def test_md_update(history_0_collection_path, md_2_path):
     headings = extract_headings(mdtokens)
     headings = mark_leaf_headings(headings)
     headings = attach_verbatim_content(mdlines, headings)
-    leaf_headings = [heading for heading in headings if heading["is_leaf"]]
+    leaf_headings = [heading for heading in headings if heading.is_leaf]
 
     leaf_headings = attach_anki_link(leaf_headings)
 
