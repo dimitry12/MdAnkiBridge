@@ -74,7 +74,7 @@ def test_heading_ankilink_line_idx(markdown_1_lines, markdown_1_tokens):
 
     leaf_headings = attach_anki_link(leaf_headings[:3])
 
-    assert leaf_headings[0]["anki_link_line_idx"] == 14
+    assert leaf_headings[0]["anki_link_lines"] == (14, 16)
 
 
 def test_heading_ankilink_nomod(markdown_1_lines, markdown_1_tokens):

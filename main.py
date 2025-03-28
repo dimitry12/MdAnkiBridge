@@ -110,7 +110,16 @@ def find_anki_link(lines):
         match = anki_link_pattern.search(content_line)
 
         if match:
-            matches.append((idx, match))
+            if (
+                idx > 0
+                and idx < (len(lines) - 1)
+                and lines[idx - 1].strip() == ""
+                and lines[idx + 1].strip() == ""
+            ):
+                # if newline before and after, then link and newline after are together
+                matches.append((idx, idx + 1, match))
+            else:
+                matches.append((idx, idx, match))
 
     if len(matches) > 1:
         raise ValueError("Multiple Anki links found in the same heading")
@@ -118,7 +127,7 @@ def find_anki_link(lines):
     if len(matches) == 0:
         return None
 
-    anki_url = matches[0][1].group(1)
+    anki_url = matches[0][2].group(1)
     parsed_url = urlparse(anki_url)
     query_params = parse_qs(parsed_url.query)
     id_params = query_params.get("id")
@@ -127,21 +136,31 @@ def find_anki_link(lines):
     if not id_params or not id_params[0]:
         raise ValueError("Anki link missing id parameter")
 
-    return matches[0][0], id_params[0], mod_params[0] if mod_params else None
+    return (
+        matches[0][0],
+        matches[0][1],
+        id_params[0],
+        mod_params[0] if mod_params else None,
+    )
 
 
 def attach_anki_link(headings):
     for heading in headings:
         anki_metadata = find_anki_link(heading["verbatim_content"])
         if anki_metadata:
-            heading_line_idx, anki_id, anki_mod = anki_metadata
+            first_heading_line_idx, last_heading_line_idx, anki_id, anki_mod = (
+                anki_metadata
+            )
             heading["anki_id"] = anki_id
             heading["anki_mod"] = anki_mod
-            heading["anki_link_line_idx"] = heading["start_line"] + heading_line_idx + 1
+            heading["anki_link_lines"] = (
+                first_heading_line_idx + heading["start_line"] + 1,
+                last_heading_line_idx + 1 + heading["start_line"] + 1,
+            )
         else:
             heading["anki_id"] = None
             heading["anki_mod"] = None
-            heading["anki_link_line_idx"] = None
+            heading["anki_link_lines"] = None
 
     return headings
 
@@ -241,8 +260,8 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
                 print("Syncing heading with sync_id:", heading["anki_id"])
                 note.fields[0] = heading["stripped_content"]
                 note.fields[1] = "".join(
-                    lines[heading["content_start"] : heading["anki_link_line_idx"]]
-                    + lines[heading["anki_link_line_idx"] + 1 : heading["content_end"]]
+                    lines[heading["content_start"] : heading["anki_link_lines"][0]]
+                    + lines[heading["anki_link_lines"][1] : heading["content_end"]]
                 )
 
                 note.tags = heading["tags"]
@@ -256,11 +275,11 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
                 heading["anki_mod"] = str(note.mod)
 
             updated_lines += (
-                lines[heading["start_line"] : heading["anki_link_line_idx"]]
+                lines[heading["start_line"] : heading["anki_link_lines"][0]]
                 + [
                     f"[anki](mdankibridge://notes/?id={heading['anki_id']}&mod={heading['anki_mod']})\n"
                 ]
-                + lines[heading["anki_link_line_idx"] + 1 : heading["content_end"]]
+                + lines[heading["anki_link_lines"][1] : heading["content_end"]]
             )
         else:
             note = col.new_note(basic_model)
@@ -280,7 +299,8 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
             updated_lines += (
                 lines[heading["start_line"] : heading["end_line"]]
                 + [
-                    f"\n[anki](mdankibridge://notes/?id={heading['anki_id']}&mod={heading['anki_mod']})\n"
+                    ("" if lines[heading["end_line"]].strip() == "" else "\n")
+                    + f"[anki](mdankibridge://notes/?id={heading['anki_id']}&mod={heading['anki_mod']})\n\n"  # newline-separated
                 ]
                 + lines[heading["end_line"] : heading["content_end"]]
             )

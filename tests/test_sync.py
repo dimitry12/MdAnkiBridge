@@ -100,6 +100,9 @@ def test_new_sync(history_0_collection_path, md_1_path):
     colpath = str(history_0_collection_path)
     mdpath = str(md_1_path)
 
+    mdlines = load_markdown_file(mdpath)
+    old_lines_count = len(mdlines)
+
     main(
         filepath=mdpath, colpath=colpath, modelname=starter_model, deckname=starter_deck
     )
@@ -113,6 +116,9 @@ def test_new_sync(history_0_collection_path, md_1_path):
 
     leaf_headings = attach_anki_link(leaf_headings)
 
+    assert (
+        len(mdlines) == old_lines_count + 2
+    ), "Adding anki-link to after the heading on md-side only adds one newline if heading is already followed by the newline."
     assert leaf_headings[0]["anki_id"] is not None
     assert leaf_headings[0]["anki_mod"] is not None
 
@@ -127,7 +133,9 @@ def test_new_sync(history_0_collection_path, md_1_path):
 
     assert note is not None
     assert note.fields[0] == "heading title"
-    assert note.fields[1] == "\nsome content\n"
+    assert (
+        note.fields[1] == "\nsome content\n"
+    ), "Anki-side of the synced note does not include the link to anki."
 
     col.close()
 
@@ -174,7 +182,9 @@ def test_md_update(history_0_collection_path, md_2_path):
 
     assert note is not None
     assert note.fields[0] == "heading title"
-    assert note.fields[1] == "\n\nsome content\n"
+    assert (
+        note.fields[1] == "\nsome content\n"
+    ), "Anki-side of the synced note does not include the link to anki."
     assert set(note.tags) == set("tag_a::tag_b tag_c".split())
 
     col.close()
