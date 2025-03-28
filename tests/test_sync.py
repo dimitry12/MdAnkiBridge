@@ -206,7 +206,7 @@ def test_md_unknown_id(history_0_collection_path, md_4_path):
     headings = extract_headings(mdtokens)
     headings = mark_leaf_headings(headings)
     headings = attach_verbatim_content(mdlines, headings)
-    leaf_headings = [heading for heading in headings if heading["is_leaf"]]
+    leaf_headings = [heading for heading in headings if heading.is_leaf]
     leaf_headings = attach_anki_link(leaf_headings)
 
     assert leaf_headings[0].anki_mod is not None
