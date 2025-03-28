@@ -35,8 +35,7 @@ class Heading(BaseModel):
     tags: List[str] = Field(default_factory=list)
     verbatim_content: List[str] = Field(default_factory=list)
     is_leaf: bool = False
-    content_start: Optional[int] = None
-    content_end: Optional[int] = None
+    heading_end: Optional[int] = None
     anki_id: Optional[str] = None
     anki_mod: Optional[str] = None
     anki_link_lines: Optional[Tuple[int, int]] = None
@@ -97,21 +96,20 @@ def attach_verbatim_content(lines, headings):
     for idx, heading in enumerate(headings):
         content_start = heading.end_line
         # Determine end line for content
-        content_end = total_lines
+        heading_end = total_lines
         for next_heading in headings[idx + 1 :]:
             # if next_heading.level <= heading.level:
-            #    content_end = next_heading.start_line
+            #    heading_end = next_heading.start_line
             #    break
-            content_end = next_heading.start_line
+            heading_end = next_heading.start_line
             break
 
         # # Only leaf headings get content
         # if heading.is_leaf:
         #     # Extract lines verbatim, preserve whitespace, line endings.
-        #     heading.verbatim_content = lines[content_start:content_end]
-        heading.verbatim_content = lines[content_start:content_end]
-        heading.content_start = content_start
-        heading.content_end = content_end
+        #     heading.verbatim_content = lines[content_start:heading_end]
+        heading.verbatim_content = lines[content_start:heading_end]
+        heading.heading_end = heading_end
     return headings
 
 
@@ -253,7 +251,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
 
     for heading in headings:
         if not heading.is_leaf:
-            updated_lines += lines[heading.start_line : heading.content_end]
+            updated_lines += lines[heading.start_line : heading.heading_end]
 
         if heading.anki_id:
             print("Processing heading with sync_id:", heading.anki_id)
@@ -273,8 +271,8 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
                 print("    Syncing heading with sync_id:", heading.anki_id)
                 note.fields[0] = heading.stripped_content
                 note.fields[1] = "".join(
-                    lines[heading.content_start : heading.anki_link_lines[0]]
-                    + lines[heading.anki_link_lines[1] : heading.content_end]
+                    lines[heading.end_line : heading.anki_link_lines[0]]
+                    + lines[heading.anki_link_lines[1] : heading.heading_end]
                 )
 
                 note.tags = heading.tags
@@ -294,13 +292,13 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
                 + [
                     f"[anki](mdankibridge://notes/?id={heading.anki_id}&mod={heading.anki_mod})\n\n"
                 ]
-                + lines[heading.anki_link_lines[1] : heading.content_end]
+                + lines[heading.anki_link_lines[1] : heading.heading_end]
             )
         else:
             note = col.new_note(basic_model)
             note.fields[0] = heading.stripped_content
             note.fields[1] = "".join(
-                lines[heading.content_start : heading.content_end]
+                lines[heading.end_line : heading.heading_end]
             )
             note.tags = heading.tags
             col.add_note(note, deck["id"])
@@ -317,7 +315,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
                     f"\n[anki](mdankibridge://notes/?id={heading.anki_id}&mod={heading.anki_mod})\n"  # newline-separated
                     + ("" if lines[heading.end_line].strip() == "" else "\n")
                 ]
-                + lines[heading.end_line : heading.content_end]
+                + lines[heading.end_line : heading.heading_end]
             )
 
         # print("=" * 80)
