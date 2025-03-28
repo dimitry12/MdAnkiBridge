@@ -31,7 +31,6 @@ class Heading(BaseModel):
     title_end: int
     title_text: str = ""
     tags: List[str] = Field(default_factory=list)
-    verbatim_content: List[str] = Field(default_factory=list)
     is_leaf: bool = False
     heading_body_end: Optional[int] = None
     anki_id: Optional[str] = None
@@ -89,7 +88,6 @@ def mark_leaf_headings(headings):
 def attach_verbatim_content(lines, headings):
     total_lines = len(lines)
     for idx, heading in enumerate(headings):
-        content_start = heading.title_end
         # Determine end line for content
         heading_body_end = total_lines
         for next_heading in headings[idx + 1 :]:
@@ -99,11 +97,6 @@ def attach_verbatim_content(lines, headings):
             heading_body_end = next_heading.heading_start
             break
 
-        # # Only leaf headings get content
-        # if heading.is_leaf:
-        #     # Extract lines verbatim, preserve whitespace, line endings.
-        #     heading.verbatim_content = lines[content_start:heading_body_end]
-        heading.verbatim_content = lines[content_start:heading_body_end]
         heading.heading_body_end = heading_body_end
     return headings
 
@@ -150,9 +143,10 @@ def find_anki_link(lines):
     )
 
 
-def attach_anki_link(headings):
+def attach_anki_link(lines, headings):
     for heading in headings:
-        anki_metadata = find_anki_link(heading.verbatim_content)
+        content_lines = lines[heading.title_end:heading.heading_body_end]
+        anki_metadata = find_anki_link(content_lines)
         if anki_metadata:
             first_heading_line_idx, last_heading_line_idx, anki_id, anki_mod = (
                 anki_metadata
@@ -160,8 +154,8 @@ def attach_anki_link(headings):
             heading.anki_id = anki_id
             heading.anki_mod = anki_mod
             heading.anki_link_lines = (
-                first_heading_line_idx + heading.heading_start + 1,
-                last_heading_line_idx + 1 + heading.heading_start + 1,
+                first_heading_line_idx + heading.title_end,
+                last_heading_line_idx + 1 + heading.title_end,
             )
         else:
             heading.anki_id = None
@@ -240,7 +234,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
     headings = extract_headings(tokens)
     headings = mark_leaf_headings(headings)
     headings = attach_verbatim_content(lines, headings)
-    headings = attach_anki_link(headings)
+    headings = attach_anki_link(lines, headings)
 
     updated_lines = lines[: headings[0].heading_start]
 

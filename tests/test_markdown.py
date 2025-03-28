@@ -37,13 +37,14 @@ def test_leaf_headings(markdown_1_tokens):
     assert len(leaf_headings) == 5
 
 
-def test_verbatim_content(markdown_1_lines, markdown_1_tokens):
+def test_content_boundaries(markdown_1_lines, markdown_1_tokens):
     headings = extract_headings(markdown_1_tokens)
     headings = mark_leaf_headings(headings)
     headings = attach_verbatim_content(markdown_1_lines, headings)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
-    assert leaf_headings[1].verbatim_content == ["\n", "some content\n", "\n"]
+    content_lines = markdown_1_lines[leaf_headings[1].title_end:leaf_headings[1].heading_body_end]
+    assert content_lines == ["\n", "some content\n", "\n"]
 
 
 def test_heading_strippped_content(markdown_1_tokens):
@@ -62,7 +63,7 @@ def test_heading_ankilink(markdown_1_lines, markdown_1_tokens):
     headings = attach_verbatim_content(markdown_1_lines, headings)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
-    leaf_headings = attach_anki_link(leaf_headings[:3])
+    leaf_headings = attach_anki_link(markdown_1_lines, leaf_headings[:3])
 
     assert leaf_headings[0].anki_id == "1742583930452"
     assert leaf_headings[0].anki_mod == "1742583944"
@@ -74,7 +75,7 @@ def test_heading_ankilink_line_idx(markdown_1_lines, markdown_1_tokens):
     headings = attach_verbatim_content(markdown_1_lines, headings)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
-    leaf_headings = attach_anki_link(leaf_headings[:3])
+    leaf_headings = attach_anki_link(markdown_1_lines, leaf_headings[:3])
 
     assert leaf_headings[0].anki_link_lines == (14, 16)
 
@@ -85,7 +86,7 @@ def test_heading_ankilink_nomod(markdown_1_lines, markdown_1_tokens):
     headings = attach_verbatim_content(markdown_1_lines, headings)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
-    leaf_headings = attach_anki_link(leaf_headings[:3])
+    leaf_headings = attach_anki_link(markdown_1_lines, leaf_headings[:3])
 
     assert leaf_headings[2].anki_id == "1742583930452"
     assert leaf_headings[2].anki_mod is None
@@ -98,7 +99,7 @@ def test_heading_ankilink_noid(markdown_1_lines, markdown_1_tokens):
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
     with pytest.raises(Exception):
-        leaf_headings = attach_anki_link(leaf_headings[3:4])
+        leaf_headings = attach_anki_link(markdown_1_lines, leaf_headings[3:4])
 
 
 def test_heading_ankilink_multiple(markdown_1_lines, markdown_1_tokens):
@@ -108,4 +109,4 @@ def test_heading_ankilink_multiple(markdown_1_lines, markdown_1_tokens):
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
     with pytest.raises(Exception):
-        leaf_headings = attach_anki_link(leaf_headings[4:5])
+        leaf_headings = attach_anki_link(markdown_1_lines, leaf_headings[4:5])

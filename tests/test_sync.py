@@ -115,7 +115,7 @@ def test_new_sync(history_0_collection_path, md_1_path):
     headings = attach_verbatim_content(mdlines, headings)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
-    leaf_headings = attach_anki_link(leaf_headings)
+    leaf_headings = attach_anki_link(mdlines, leaf_headings)
 
     assert (
         len(mdlines) == old_lines_count + 2
@@ -154,7 +154,7 @@ def test_md_update(history_0_collection_path, md_2_path):
     headings = attach_verbatim_content(mdlines, headings)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
-    leaf_headings = attach_anki_link(leaf_headings)
+    leaf_headings = attach_anki_link(mdlines, leaf_headings)
 
     assert mdlines[1] == "\n", "Newline before the anki-link"
     assert mdlines[3] == "\n", "Newline after the anki-link"
@@ -172,7 +172,7 @@ def test_md_update(history_0_collection_path, md_2_path):
     headings = attach_verbatim_content(mdlines, headings)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
-    leaf_headings = attach_anki_link(leaf_headings)
+    leaf_headings = attach_anki_link(mdlines, leaf_headings)
 
     assert mdlines[1] == "\n", "Newline before the anki-link"
     assert mdlines[3] == "\n", "Newline after the anki-link"
@@ -207,7 +207,7 @@ def test_md_unknown_id(history_0_collection_path, md_4_path):
     headings = mark_leaf_headings(headings)
     headings = attach_verbatim_content(mdlines, headings)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
-    leaf_headings = attach_anki_link(leaf_headings)
+    leaf_headings = attach_anki_link(mdlines, leaf_headings)
 
     assert leaf_headings[0].anki_mod is not None
     assert leaf_headings[0].anki_id is not None
