@@ -17,8 +17,6 @@ def write_markdown_file(filepath, lines):
 class AnkiLink(BaseModel):
     id: str
     mod: Optional[str] = None
-    line_start: Optional[int] = None
-    line_end: Optional[int] = None
 
     @property
     def has_mod(self) -> bool:
@@ -34,6 +32,7 @@ class Heading(BaseModel):
     is_leaf: bool = False
     heading_body_end: Optional[int] = None
     anki_link: Optional[AnkiLink] = None
+    other_content: Optional[List[str]] = None
 
 
 def parse_markdown_headings(filepath: str) -> Tuple[List[str], List[Heading]]:
@@ -158,11 +157,22 @@ def attach_anki_link(lines, headings: list[Heading]):
         anki_metadata = find_anki_link(content_lines)
         if anki_metadata:
             first_heading_line_idx, last_heading_line_idx, anki_link = anki_metadata
-            anki_link.line_start = first_heading_line_idx + heading.title_end
-            anki_link.line_end = last_heading_line_idx + 1 + heading.title_end
+            heading.other_content: list[str] = (
+                content_lines[:first_heading_line_idx]
+                + content_lines[last_heading_line_idx + 1 :]
+            )
             heading.anki_link = anki_link
         else:
             heading.anki_link = None
+            heading.other_content = content_lines
+
+        # strip leading and trailing empty lines from other content
+        while heading.other_content and heading.other_content[0].strip() == "":
+            heading.other_content.pop(0)
+
+        # strip leading and trailing empty lines from other content
+        while heading.other_content and heading.other_content[-1].strip() == "":
+            heading.other_content.pop()
 
     return headings
 
@@ -203,10 +213,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
 
                 print("    Syncing heading with sync_id:", heading.anki_link.id)
                 note.fields[0] = heading.title_text
-                note.fields[1] = "".join(
-                    lines[heading.title_end : heading.anki_link.line_start]
-                    + lines[heading.anki_link.line_end : heading.heading_body_end]
-                )
+                note.fields[1] = "".join(heading.other_content)
 
                 note.tags = heading.tags
                 col.update_note(note)
@@ -221,11 +228,11 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
                 heading.anki_link.mod = str(note.mod)
 
             updated_lines += (
-                lines[heading.heading_start : heading.anki_link.line_start]
+                lines[heading.heading_start : heading.title_end]
                 + [
-                    f"[anki](mdankibridge://notes/?id={heading.anki_link.id}&mod={heading.anki_link.mod})\n\n"
+                    f"\n[anki](mdankibridge://notes/?id={heading.anki_link.id}&mod={heading.anki_link.mod})\n\n"
                 ]
-                + lines[heading.anki_link.line_end : heading.heading_body_end]
+                + heading.other_content
             )
         else:
             note = col.new_note(basic_model)
@@ -246,10 +253,10 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
             updated_lines += (
                 lines[heading.heading_start : heading.title_end]
                 + [
-                    f"\n[anki](mdankibridge://notes/?id={heading.anki_link.id}&mod={heading.anki_link.mod})\n"  # newline-separated
+                    f"\n[anki](mdankibridge://notes/?id={heading.anki_link.id}&mod={heading.anki_link.mod})\n\n"  # newline-separated
                     + ("" if lines[heading.title_end].strip() == "" else "\n")
                 ]
-                + lines[heading.title_end : heading.heading_body_end]
+                + heading.other_content
             )
 
         # print("=" * 80)
