@@ -4,11 +4,7 @@ import shutil
 from anki.collection import Collection
 from main import main
 from main import (
-    load_markdown_file,
-    parse_tokens_with_positions,
-    extract_headings,
-    mark_leaf_headings,
-    attach_verbatim_content,
+    parse_markdown_headings,
     attach_anki_link,
     Heading,
 )
@@ -101,18 +97,14 @@ def test_new_sync(history_0_collection_path, md_1_path):
     colpath = str(history_0_collection_path)
     mdpath = str(md_1_path)
 
-    mdlines = load_markdown_file(mdpath)
+    mdlines, headings = parse_markdown_headings(mdpath)
     old_lines_count = len(mdlines)
 
     main(
         filepath=mdpath, colpath=colpath, modelname=starter_model, deckname=starter_deck
     )
 
-    mdlines = load_markdown_file(mdpath)
-    mdtokens = parse_tokens_with_positions("".join(mdlines))
-    headings = extract_headings(mdtokens)
-    headings = mark_leaf_headings(headings)
-    headings = attach_verbatim_content(mdlines, headings)
+    mdlines, headings = parse_markdown_headings(mdpath)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
     leaf_headings = attach_anki_link(mdlines, leaf_headings)
@@ -148,11 +140,7 @@ def test_md_update(history_0_collection_path, md_2_path):
     colpath = str(history_0_collection_path)
     mdpath = str(md_2_path)
 
-    mdlines = load_markdown_file(mdpath)
-    mdtokens = parse_tokens_with_positions("".join(mdlines))
-    headings = extract_headings(mdtokens)
-    headings = mark_leaf_headings(headings)
-    headings = attach_verbatim_content(mdlines, headings)
+    mdlines, headings = parse_markdown_headings(mdpath)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
     leaf_headings = attach_anki_link(mdlines, leaf_headings)
@@ -166,11 +154,7 @@ def test_md_update(history_0_collection_path, md_2_path):
         filepath=mdpath, colpath=colpath, modelname=starter_model, deckname=starter_deck
     )
 
-    mdlines = load_markdown_file(mdpath)
-    mdtokens = parse_tokens_with_positions("".join(mdlines))
-    headings = extract_headings(mdtokens)
-    headings = mark_leaf_headings(headings)
-    headings = attach_verbatim_content(mdlines, headings)
+    mdlines, headings = parse_markdown_headings(mdpath)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
     leaf_headings = attach_anki_link(mdlines, leaf_headings)
@@ -202,11 +186,7 @@ def test_md_unknown_id(history_0_collection_path, md_4_path):
     colpath = str(history_0_collection_path)
     mdpath = str(md_4_path)
 
-    mdlines = load_markdown_file(mdpath)
-    mdtokens = parse_tokens_with_positions("".join(mdlines))
-    headings = extract_headings(mdtokens)
-    headings = mark_leaf_headings(headings)
-    headings = attach_verbatim_content(mdlines, headings)
+    mdlines, headings = parse_markdown_headings(mdpath)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
     leaf_headings = attach_anki_link(mdlines, leaf_headings)
 

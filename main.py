@@ -9,21 +9,9 @@ from dataclasses import dataclass
 from anki.collection import Collection
 
 
-def load_markdown_file(filepath):
-    with open(filepath, "r", encoding="utf-8") as f:
-        lines = f.readlines()
-    return lines
-
-
 def write_markdown_file(filepath, lines):
     with open(filepath, "w", encoding="utf-8") as f:
         f.writelines(lines)
-
-
-def parse_tokens_with_positions(md_text):
-    md = MarkdownIt()
-    tokens = md.parse(md_text)
-    return tokens
 
 
 class AnkiLink(BaseModel):
@@ -48,7 +36,28 @@ class Heading(BaseModel):
     anki_link: Optional[AnkiLink] = None
 
 
-def extract_headings(tokens):
+def parse_markdown_headings(filepath: str) -> Tuple[List[str], List[Heading]]:
+    """
+    Parse a markdown file and extract all headings with their properties.
+    
+    Args:
+        filepath: Path to the markdown file
+        
+    Returns:
+        Tuple containing:
+        - List of lines from the markdown file
+        - List of Heading objects
+    """
+    # Load the markdown file
+    with open(filepath, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    
+    # Parse the markdown into tokens
+    md_text = "".join(lines)
+    md = MarkdownIt()
+    tokens = md.parse(md_text)
+    
+    # Extract headings from tokens
     headings = []
     for i, token in enumerate(tokens):
         if token.type == "heading_open":
@@ -74,17 +83,14 @@ def extract_headings(tokens):
                 )
 
                 headings.append(heading)
-    return headings
-
-
-def mark_leaf_headings(headings):
-    """Add an 'is_leaf' flag to headings that have no child headings."""
+    
+    # Mark leaf headings
     for idx, heading in enumerate(headings):
         current_level = heading.level
         # Assume leaf by default
         heading.is_leaf = True
         # Check if any subsequent heading is a child
-        for next_heading in headings[idx + 1 :]:
+        for next_heading in headings[idx + 1:]:
             if next_heading.level > current_level:
                 # found child heading -> current not leaf
                 heading.is_leaf = False
@@ -92,23 +98,19 @@ def mark_leaf_headings(headings):
             elif next_heading.level <= current_level:
                 # sibling or higher-level heading encountered, move to next heading
                 break
-    return headings
-
-
-def find_heading_body_ends(lines, headings):
+    
+    # Find heading body ends
     total_lines = len(lines)
     for idx, heading in enumerate(headings):
         # Determine end line for content
         heading_body_end = total_lines
-        for next_heading in headings[idx + 1 :]:
-            # if next_heading.level <= heading.level:
-            #    heading_body_end = next_heading.heading_start
-            #    break
+        for next_heading in headings[idx + 1:]:
             heading_body_end = next_heading.heading_start
             break
 
         heading.heading_body_end = heading_body_end
-    return headings
+    
+    return lines, headings
 
 
 def find_anki_link(lines) -> Optional[Tuple[int, int, AnkiLink]]:
@@ -228,12 +230,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
     col.decks.select(deck["id"])
     col.decks.current()["mid"] = basic_model["id"]
 
-    lines = load_markdown_file(filepath)
-    md_text = "".join(lines)
-    tokens = parse_tokens_with_positions(md_text)
-    headings = extract_headings(tokens)
-    headings = mark_leaf_headings(headings)
-    headings = find_heading_body_ends(lines, headings)
+    lines, headings = parse_markdown_headings(filepath)
     headings = attach_anki_link(lines, headings)
 
     updated_lines = lines[: headings[0].heading_start]
