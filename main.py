@@ -39,10 +39,10 @@ class Heading(BaseModel):
 def parse_markdown_headings(filepath: str) -> Tuple[List[str], List[Heading]]:
     """
     Parse a markdown file and extract all headings with their properties.
-    
+
     Args:
         filepath: Path to the markdown file
-        
+
     Returns:
         Tuple containing:
         - List of lines from the markdown file
@@ -51,12 +51,12 @@ def parse_markdown_headings(filepath: str) -> Tuple[List[str], List[Heading]]:
     # Load the markdown file
     with open(filepath, "r", encoding="utf-8") as f:
         lines = f.readlines()
-    
+
     # Parse the markdown into tokens
     md_text = "".join(lines)
     md = MarkdownIt()
     tokens = md.parse(md_text)
-    
+
     # Extract headings from tokens
     headings = []
     for i, token in enumerate(tokens):
@@ -83,14 +83,14 @@ def parse_markdown_headings(filepath: str) -> Tuple[List[str], List[Heading]]:
                 )
 
                 headings.append(heading)
-    
+
     # Mark leaf headings
     for idx, heading in enumerate(headings):
         current_level = heading.level
         # Assume leaf by default
         heading.is_leaf = True
         # Check if any subsequent heading is a child
-        for next_heading in headings[idx + 1:]:
+        for next_heading in headings[idx + 1 :]:
             if next_heading.level > current_level:
                 # found child heading -> current not leaf
                 heading.is_leaf = False
@@ -98,18 +98,18 @@ def parse_markdown_headings(filepath: str) -> Tuple[List[str], List[Heading]]:
             elif next_heading.level <= current_level:
                 # sibling or higher-level heading encountered, move to next heading
                 break
-    
+
     # Find heading body ends
     total_lines = len(lines)
     for idx, heading in enumerate(headings):
         # Determine end line for content
         heading_body_end = total_lines
-        for next_heading in headings[idx + 1:]:
+        for next_heading in headings[idx + 1 :]:
             heading_body_end = next_heading.heading_start
             break
 
         heading.heading_body_end = heading_body_end
-    
+
     return lines, headings
 
 
@@ -165,61 +165,6 @@ def attach_anki_link(lines, headings: list[Heading]):
             heading.anki_link = None
 
     return headings
-
-
-def get_heading_attributes(lines, heading):
-    """
-    Extract attribute key-value pairs from a Markdown Extra attributes block.
-
-    Args:
-        lines: list of markdown file lines
-        heading: Heading object with 'heading_start' indicating the heading position
-
-    Returns:
-        dict of attributes extracted from the heading
-    """
-    attr_dict = {}
-    line_idx = heading.heading_start
-    line = lines[line_idx]
-
-    # TODO: preserve other non-key-value attributes
-
-    attr_match = re.search(r"\{(.*?)\}\s*$", line.strip())
-    if attr_match:
-        attr_string = attr_match.group(1)
-        # Split attribute pairs, separated by spaces
-        for attr_pair in re.findall(r"(\w+)=([\w\-\_]+)", attr_string):
-            key, value = attr_pair
-            attr_dict[key] = value
-    return attr_dict
-
-
-def set_heading_attributes(lines, heading, new_attrs):
-    """
-    Set heading's attribute markdown block from provided attribute dictionary.
-
-    Args:
-        lines: list of markdown file lines
-        heading: Heading object with 'heading_start' indicating heading position
-        new_attrs: dict of attributes to insert/update in the heading
-
-    Returns:
-        Modified lines with updated attributes for the heading
-    """
-    line_idx = heading.heading_start
-    line = lines[line_idx].rstrip("\n")
-
-    # TODO: preserve other non-key-value attributes
-
-    existing_attrs_match = re.search(r"(.*?)(\s*\{.*\}\s*)?$", line)
-    heading_text = existing_attrs_match.group(1).rstrip()
-
-    # Create new attribute string from new_attrs dict
-    attrs_string = " ".join(f"{k}={v}" for k, v in new_attrs.items())
-    new_line = f"{heading_text} {{ {attrs_string} }}\n"
-
-    lines[line_idx] = new_line
-    return lines
 
 
 def main(filepath: str, colpath: str, modelname: str, deckname: str):
