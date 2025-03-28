@@ -1,7 +1,7 @@
 import pytest
 from main import (
     parse_markdown_headings,
-    attach_anki_link,
+    split_body,
     Heading,
 )
 import pathlib
@@ -54,7 +54,7 @@ def test_heading_tags(markdown_1_headings):
 def test_heading_ankilink(markdown_1_lines, markdown_1_headings):
     leaf_headings = [heading for heading in markdown_1_headings if heading.is_leaf]
 
-    leaf_headings = attach_anki_link(markdown_1_lines, leaf_headings[:3])
+    leaf_headings = split_body(markdown_1_lines, leaf_headings[:3])
 
     assert leaf_headings[0].anki_link.id == "1742583930452"
     assert leaf_headings[0].anki_link.mod == "1742583944"
@@ -63,7 +63,7 @@ def test_heading_ankilink(markdown_1_lines, markdown_1_headings):
 def test_heading_ankilink_line_idx(markdown_1_lines, markdown_1_headings):
     leaf_headings = [heading for heading in markdown_1_headings if heading.is_leaf]
 
-    leaf_headings = attach_anki_link(markdown_1_lines, leaf_headings[:3])
+    leaf_headings = split_body(markdown_1_lines, leaf_headings[:3])
 
     # assert leaf_headings[0].anki_link.line_start == 14
     # assert leaf_headings[0].anki_link.line_end == 16
@@ -75,7 +75,7 @@ def test_heading_ankilink_line_idx(markdown_1_lines, markdown_1_headings):
 def test_heading_ankilink_nomod(markdown_1_lines, markdown_1_headings):
     leaf_headings = [heading for heading in markdown_1_headings if heading.is_leaf]
 
-    leaf_headings = attach_anki_link(markdown_1_lines, leaf_headings[:3])
+    leaf_headings = split_body(markdown_1_lines, leaf_headings[:3])
 
     assert leaf_headings[2].anki_link.id == "1742583930452"
     assert leaf_headings[2].anki_link.mod is None
@@ -85,11 +85,11 @@ def test_heading_ankilink_noid(markdown_1_lines, markdown_1_headings):
     leaf_headings = [heading for heading in markdown_1_headings if heading.is_leaf]
 
     with pytest.raises(Exception):
-        leaf_headings = attach_anki_link(markdown_1_lines, leaf_headings[3:4])
+        leaf_headings = split_body(markdown_1_lines, leaf_headings[3:4])
 
 
 def test_heading_ankilink_multiple(markdown_1_lines, markdown_1_headings):
     leaf_headings = [heading for heading in markdown_1_headings if heading.is_leaf]
 
     with pytest.raises(Exception):
-        leaf_headings = attach_anki_link(markdown_1_lines, leaf_headings[4:5])
+        leaf_headings = split_body(markdown_1_lines, leaf_headings[4:5])

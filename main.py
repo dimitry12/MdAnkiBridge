@@ -151,7 +151,7 @@ def find_anki_link(lines) -> Optional[Tuple[int, int, AnkiLink]]:
     return matches[0][0], matches[0][1], anki_link
 
 
-def attach_anki_link(lines, headings: list[Heading]):
+def split_body(lines, headings: list[Heading]):
     for heading in headings:
         content_lines = lines[heading.title_end : heading.heading_body_end]
         anki_metadata = find_anki_link(content_lines)
@@ -186,7 +186,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
     col.decks.current()["mid"] = basic_model["id"]
 
     lines, headings = parse_markdown_headings(filepath)
-    headings = attach_anki_link(lines, headings)
+    headings = split_body(lines, headings)
 
     updated_lines = lines[: headings[0].heading_start]
 
