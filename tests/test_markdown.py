@@ -43,7 +43,9 @@ def test_content_boundaries(markdown_1_lines, markdown_1_tokens):
     headings = attach_verbatim_content(markdown_1_lines, headings)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
-    content_lines = markdown_1_lines[leaf_headings[1].title_end:leaf_headings[1].heading_body_end]
+    content_lines = markdown_1_lines[
+        leaf_headings[1].title_end : leaf_headings[1].heading_body_end
+    ]
     assert content_lines == ["\n", "some content\n", "\n"]
 
 
@@ -79,6 +81,9 @@ def test_heading_ankilink_line_idx(markdown_1_lines, markdown_1_tokens):
 
     assert leaf_headings[0].anki_link.line_start == 14
     assert leaf_headings[0].anki_link.line_end == 16
+
+    assert leaf_headings[2].anki_link.line_start == 27
+    assert leaf_headings[2].anki_link.line_end == 28
 
 
 def test_heading_ankilink_nomod(markdown_1_lines, markdown_1_tokens):

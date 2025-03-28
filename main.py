@@ -31,7 +31,7 @@ class AnkiLink(BaseModel):
     mod: Optional[str] = None
     line_start: Optional[int] = None
     line_end: Optional[int] = None
-    
+
     @property
     def has_mod(self) -> bool:
         return self.mod is not None
@@ -145,10 +145,7 @@ def find_anki_link(lines) -> Optional[Tuple[int, int, AnkiLink]]:
     if not id_params or not id_params[0]:
         raise ValueError("Anki link missing id parameter")
 
-    anki_link = AnkiLink(
-        id=id_params[0],
-        mod=mod_params[0] if mod_params else None
-    )
+    anki_link = AnkiLink(id=id_params[0], mod=mod_params[0] if mod_params else None)
 
     return matches[0][0], matches[0][1], anki_link
 
@@ -251,7 +248,9 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
             try:
                 note = col.get_note(int(heading.anki_link.id))
             except:
-                raise ValueError(f"Note with id {heading.anki_link.id} not found in Anki")
+                raise ValueError(
+                    f"Note with id {heading.anki_link.id} not found in Anki"
+                )
 
             if heading.anki_link.mod and note.mod > int(heading.anki_link.mod):
                 print("    Note is newer in anki, skipping sync")
@@ -294,7 +293,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
             )
             note.tags = heading.tags
             col.add_note(note, deck["id"])
-            
+
             anki_link = AnkiLink(id=str(note.id))
             heading.anki_link = anki_link
             print("Syncing new heading with sync_id:", heading.anki_link.id)
