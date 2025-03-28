@@ -20,6 +20,14 @@ class AnkiLink(BaseModel):
     @property
     def has_mod(self) -> bool:
         return self.mod is not None
+        
+    @property
+    def lines(self) -> List[str]:
+        """Generate the formatted lines for the anki link with trailing newlines."""
+        mod_param = f"&mod={self.mod}" if self.mod else ""
+        return [
+            f"\n[anki](mdankibridge://notes/?id={self.id}{mod_param})\n\n"
+        ]
 
 
 class Heading(BaseModel):
@@ -228,9 +236,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
 
             updated_lines += (
                 lines[heading.heading_start : heading.title_end]
-                + [
-                    f"\n[anki](mdankibridge://notes/?id={heading.anki_link.id}&mod={heading.anki_link.mod})\n\n"
-                ]
+                + heading.anki_link.lines
                 + heading.other_content
             )
         else:
@@ -251,10 +257,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
 
             updated_lines += (
                 lines[heading.heading_start : heading.title_end]
-                + [
-                    f"\n[anki](mdankibridge://notes/?id={heading.anki_link.id}&mod={heading.anki_link.mod})\n\n"  # newline-separated
-                    + ("" if lines[heading.title_end].strip() == "" else "\n")
-                ]
+                + heading.anki_link.lines
                 + heading.other_content
             )
 
