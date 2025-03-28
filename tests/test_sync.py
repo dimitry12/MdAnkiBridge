@@ -10,6 +10,7 @@ from main import (
     mark_leaf_headings,
     attach_verbatim_content,
     attach_anki_link,
+    Heading,
 )
 
 current_dir = pathlib.Path(__file__).parent
@@ -112,7 +113,7 @@ def test_new_sync(history_0_collection_path, md_1_path):
     headings = extract_headings(mdtokens)
     headings = mark_leaf_headings(headings)
     headings = attach_verbatim_content(mdlines, headings)
-    leaf_headings = [heading for heading in headings if heading["is_leaf"]]
+    leaf_headings = [heading for heading in headings if heading.is_leaf]
 
     leaf_headings = attach_anki_link(leaf_headings)
 
@@ -121,8 +122,8 @@ def test_new_sync(history_0_collection_path, md_1_path):
     ), "Adding anki-link to after the heading on md-side only adds one newline if heading is already followed by the newline."
     assert mdlines[1] == "\n", "Newline before the anki-link"
     assert mdlines[3] == "\n", "Newline after the anki-link"
-    assert leaf_headings[0]["anki_id"] is not None
-    assert leaf_headings[0]["anki_mod"] is not None
+    assert leaf_headings[0].anki_id is not None
+    assert leaf_headings[0].anki_mod is not None
 
     col = Collection(colpath)
 
@@ -131,7 +132,7 @@ def test_new_sync(history_0_collection_path, md_1_path):
     col.decks.select(deck["id"])
     col.decks.current()["mid"] = basic_model["id"]
 
-    note = col.get_note(int(leaf_headings[0]["anki_id"]))
+    note = col.get_note(int(leaf_headings[0].anki_id))
 
     assert note is not None
     assert note.fields[0] == "heading title"
@@ -157,8 +158,8 @@ def test_md_update(history_0_collection_path, md_2_path):
 
     assert mdlines[1] == "\n", "Newline before the anki-link"
     assert mdlines[3] == "\n", "Newline after the anki-link"
-    assert leaf_headings[0]["anki_mod"] is not None
-    old_md_mod = leaf_headings[0]["anki_mod"]
+    assert leaf_headings[0].anki_mod is not None
+    old_md_mod = leaf_headings[0].anki_mod
 
     main(
         filepath=mdpath, colpath=colpath, modelname=starter_model, deckname=starter_deck
@@ -175,7 +176,7 @@ def test_md_update(history_0_collection_path, md_2_path):
 
     assert mdlines[1] == "\n", "Newline before the anki-link"
     assert mdlines[3] == "\n", "Newline after the anki-link"
-    assert leaf_headings[0]["anki_mod"] > old_md_mod
+    assert leaf_headings[0].anki_mod > old_md_mod
 
     col = Collection(colpath)
 
@@ -208,8 +209,8 @@ def test_md_unknown_id(history_0_collection_path, md_4_path):
     leaf_headings = [heading for heading in headings if heading["is_leaf"]]
     leaf_headings = attach_anki_link(leaf_headings)
 
-    assert leaf_headings[0]["anki_mod"] is not None
-    assert leaf_headings[0]["anki_id"] is not None
+    assert leaf_headings[0].anki_mod is not None
+    assert leaf_headings[0].anki_id is not None
 
     with pytest.raises(Exception):
         main(
