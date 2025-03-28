@@ -277,7 +277,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
             updated_lines += (
                 lines[heading["start_line"] : heading["anki_link_lines"][0]]
                 + [
-                    f"[anki](mdankibridge://notes/?id={heading['anki_id']}&mod={heading['anki_mod']})\n"
+                    f"[anki](mdankibridge://notes/?id={heading['anki_id']}&mod={heading['anki_mod']})\n\n"
                 ]
                 + lines[heading["anki_link_lines"][1] : heading["content_end"]]
             )
@@ -299,8 +299,8 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
             updated_lines += (
                 lines[heading["start_line"] : heading["end_line"]]
                 + [
-                    ("" if lines[heading["end_line"]].strip() == "" else "\n")
-                    + f"[anki](mdankibridge://notes/?id={heading['anki_id']}&mod={heading['anki_mod']})\n\n"  # newline-separated
+                    f"\n[anki](mdankibridge://notes/?id={heading['anki_id']}&mod={heading['anki_mod']})\n"  # newline-separated
+                    + ("" if lines[heading["end_line"]].strip() == "" else "\n")
                 ]
                 + lines[heading["end_line"] : heading["content_end"]]
             )
