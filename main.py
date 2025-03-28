@@ -27,15 +27,13 @@ def parse_tokens_with_positions(md_text):
 
 class Heading(BaseModel):
     level: int
-    token_index: int
-    start_line: int
-    end_line: int
-    raw_content: str
-    stripped_content: str = ""
+    heading_start: int
+    title_end: int
+    title_text: str = ""
     tags: List[str] = Field(default_factory=list)
     verbatim_content: List[str] = Field(default_factory=list)
     is_leaf: bool = False
-    heading_end: Optional[int] = None
+    heading_body_end: Optional[int] = None
     anki_id: Optional[str] = None
     anki_mod: Optional[str] = None
     anki_link_lines: Optional[Tuple[int, int]] = None
@@ -49,7 +47,7 @@ def extract_headings(tokens):
             inline_token = tokens[i + 1]
             if inline_token.type == "inline":
                 content = inline_token.content
-                
+
                 # Extract tags (#tag or #tag1/tag2)
                 tags = re.findall(r"#([\w\d_\/]+)", content)
                 tags = [tag.replace("/", "::") for tag in tags]
@@ -57,15 +55,13 @@ def extract_headings(tokens):
                 stripped_content = content
                 stripped_content = re.sub(r"{.*}", "", stripped_content)
                 stripped_content = re.sub(r"#([\w\d_\/]+)", "", stripped_content)
-                
+
                 heading = Heading(
                     level=level,
-                    token_index=i,
-                    start_line=token.map[0],
-                    end_line=token.map[1],
-                    raw_content=content,
-                    stripped_content=stripped_content.strip(),
-                    tags=tags
+                    heading_start=token.map[0],
+                    title_end=token.map[1],
+                    title_text=stripped_content.strip(),
+                    tags=tags,
                 )
 
                 headings.append(heading)
@@ -88,7 +84,6 @@ def mark_leaf_headings(headings):
                 # sibling or higher-level heading encountered, move to next heading
                 break
     return headings
-
 
 
 def attach_verbatim_content(lines, headings):
@@ -297,9 +292,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
         else:
             note = col.new_note(basic_model)
             note.fields[0] = heading.stripped_content
-            note.fields[1] = "".join(
-                lines[heading.end_line : heading.heading_end]
-            )
+            note.fields[1] = "".join(lines[heading.end_line : heading.heading_end])
             note.tags = heading.tags
             col.add_note(note, deck["id"])
             heading.anki_id = str(note.id)
@@ -319,7 +312,6 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
             )
 
         # print("=" * 80)
-        # print("Header:", heading.raw_content)
         # print("Tags:", heading.tags)
         # print("Content:\n", "".join(heading.verbatim_content))
 
