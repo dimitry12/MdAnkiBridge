@@ -48,7 +48,7 @@ def test_verbatim_content(markdown_1_lines, markdown_1_tokens):
 
 def test_heading_strippped_content(markdown_1_tokens):
     headings = extract_headings(markdown_1_tokens)
-    assert headings[1].stripped_content == "non-leaf heading 1"
+    assert headings[1].title_text == "non-leaf heading 1"
 
 
 def test_heading_tags(markdown_1_tokens):

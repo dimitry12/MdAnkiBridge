@@ -89,22 +89,22 @@ def mark_leaf_headings(headings):
 def attach_verbatim_content(lines, headings):
     total_lines = len(lines)
     for idx, heading in enumerate(headings):
-        content_start = heading.end_line
+        content_start = heading.title_end
         # Determine end line for content
-        heading_end = total_lines
+        heading_body_end = total_lines
         for next_heading in headings[idx + 1 :]:
             # if next_heading.level <= heading.level:
-            #    heading_end = next_heading.start_line
+            #    heading_body_end = next_heading.heading_start
             #    break
-            heading_end = next_heading.start_line
+            heading_body_end = next_heading.heading_start
             break
 
         # # Only leaf headings get content
         # if heading.is_leaf:
         #     # Extract lines verbatim, preserve whitespace, line endings.
-        #     heading.verbatim_content = lines[content_start:heading_end]
-        heading.verbatim_content = lines[content_start:heading_end]
-        heading.heading_end = heading_end
+        #     heading.verbatim_content = lines[content_start:heading_body_end]
+        heading.verbatim_content = lines[content_start:heading_body_end]
+        heading.heading_body_end = heading_body_end
     return headings
 
 
@@ -160,8 +160,8 @@ def attach_anki_link(headings):
             heading.anki_id = anki_id
             heading.anki_mod = anki_mod
             heading.anki_link_lines = (
-                first_heading_line_idx + heading.start_line + 1,
-                last_heading_line_idx + 1 + heading.start_line + 1,
+                first_heading_line_idx + heading.heading_start + 1,
+                last_heading_line_idx + 1 + heading.heading_start + 1,
             )
         else:
             heading.anki_id = None
@@ -177,13 +177,13 @@ def get_heading_attributes(lines, heading):
 
     Args:
         lines: list of markdown file lines
-        heading: Heading object with 'start_line' indicating the heading position
+        heading: Heading object with 'heading_start' indicating the heading position
 
     Returns:
         dict of attributes extracted from the heading
     """
     attr_dict = {}
-    line_idx = heading.start_line
+    line_idx = heading.heading_start
     line = lines[line_idx]
 
     # TODO: preserve other non-key-value attributes
@@ -204,13 +204,13 @@ def set_heading_attributes(lines, heading, new_attrs):
 
     Args:
         lines: list of markdown file lines
-        heading: Heading object with 'start_line' indicating heading position
+        heading: Heading object with 'heading_start' indicating heading position
         new_attrs: dict of attributes to insert/update in the heading
 
     Returns:
         Modified lines with updated attributes for the heading
     """
-    line_idx = heading.start_line
+    line_idx = heading.heading_start
     line = lines[line_idx].rstrip("\n")
 
     # TODO: preserve other non-key-value attributes
@@ -242,11 +242,11 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
     headings = attach_verbatim_content(lines, headings)
     headings = attach_anki_link(headings)
 
-    updated_lines = lines[: headings[0].start_line]
+    updated_lines = lines[: headings[0].heading_start]
 
     for heading in headings:
         if not heading.is_leaf:
-            updated_lines += lines[heading.start_line : heading.heading_end]
+            updated_lines += lines[heading.heading_start : heading.heading_body_end]
 
         if heading.anki_id:
             print("Processing heading with sync_id:", heading.anki_id)
@@ -264,10 +264,10 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
                     print("    Note has no mod, syncing anyway")
 
                 print("    Syncing heading with sync_id:", heading.anki_id)
-                note.fields[0] = heading.stripped_content
+                note.fields[0] = heading.title_text
                 note.fields[1] = "".join(
-                    lines[heading.end_line : heading.anki_link_lines[0]]
-                    + lines[heading.anki_link_lines[1] : heading.heading_end]
+                    lines[heading.title_end : heading.anki_link_lines[0]]
+                    + lines[heading.anki_link_lines[1] : heading.heading_body_end]
                 )
 
                 note.tags = heading.tags
@@ -283,16 +283,16 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
                 heading.anki_mod = str(note.mod)
 
             updated_lines += (
-                lines[heading.start_line : heading.anki_link_lines[0]]
+                lines[heading.heading_start : heading.anki_link_lines[0]]
                 + [
                     f"[anki](mdankibridge://notes/?id={heading.anki_id}&mod={heading.anki_mod})\n\n"
                 ]
-                + lines[heading.anki_link_lines[1] : heading.heading_end]
+                + lines[heading.anki_link_lines[1] : heading.heading_body_end]
             )
         else:
             note = col.new_note(basic_model)
-            note.fields[0] = heading.stripped_content
-            note.fields[1] = "".join(lines[heading.end_line : heading.heading_end])
+            note.fields[0] = heading.title_text
+            note.fields[1] = "".join(lines[heading.title_end : heading.heading_body_end])
             note.tags = heading.tags
             col.add_note(note, deck["id"])
             heading.anki_id = str(note.id)
@@ -303,12 +303,12 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
             heading.anki_mod = str(note.mod)
 
             updated_lines += (
-                lines[heading.start_line : heading.end_line]
+                lines[heading.heading_start : heading.title_end]
                 + [
                     f"\n[anki](mdankibridge://notes/?id={heading.anki_id}&mod={heading.anki_mod})\n"  # newline-separated
-                    + ("" if lines[heading.end_line].strip() == "" else "\n")
+                    + ("" if lines[heading.title_end].strip() == "" else "\n")
                 ]
-                + lines[heading.end_line : heading.heading_end]
+                + lines[heading.title_end : heading.heading_body_end]
             )
 
         # print("=" * 80)
