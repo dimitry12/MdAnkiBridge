@@ -20,14 +20,12 @@ class AnkiLink(BaseModel):
     @property
     def has_mod(self) -> bool:
         return self.mod is not None
-        
+
     @property
     def lines(self) -> List[str]:
         """Generate the formatted lines for the anki link with trailing newlines."""
         mod_param = f"&mod={self.mod}" if self.mod else ""
-        return [
-            f"\n[anki](mdankibridge://notes/?id={self.id}{mod_param})\n\n"
-        ]
+        return [f"\n[anki](mdankibridge://notes/?id={self.id}{mod_param})\n\n"]
 
 
 class Heading(BaseModel):
@@ -40,20 +38,20 @@ class Heading(BaseModel):
     heading_body_end: Optional[int] = None
     anki_link: Optional[AnkiLink] = None
     other_content: Optional[List[str]] = None
-    
+
     @property
     def title_lines(self) -> List[str]:
         """Generate the formatted title lines with proper heading level and tags."""
         heading_prefix = "#" * self.level + " "
-        
+
         # Format tags as #tag1/tag2 format
         formatted_tags = []
         for tag in self.tags:
             formatted_tag = tag.replace("::", "/")
             formatted_tags.append(f"#{formatted_tag}")
-        
+
         tags_text = " ".join(formatted_tags)
-        
+
         # Add space between title and tags if both exist
         if self.title_text and tags_text:
             return [f"{heading_prefix}{self.title_text} {tags_text}\n"]
@@ -218,11 +216,14 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
     lines, headings = parse_markdown_headings(filepath)
     headings = split_body(lines, headings)
 
+    # lines before first heading
     updated_lines = lines[: headings[0].heading_start]
 
     for heading in headings:
         if not heading.is_leaf:
+            # leaving non-leaf headings completely unchanged
             updated_lines += lines[heading.heading_start : heading.heading_body_end]
+            continue
 
         if heading.anki_link:
             print("Processing heading with sync_id:", heading.anki_link.id)
@@ -257,11 +258,6 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
                     print("    Note is unchanged")
                 heading.anki_link.mod = str(note.mod)
 
-            updated_lines += (
-                heading.title_lines
-                + heading.anki_link.lines
-                + heading.other_content
-            )
         else:
             note = col.new_note(basic_model)
             note.fields[0] = heading.title_text
@@ -278,15 +274,16 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
             note = col.get_note(int(heading.anki_link.id))
             heading.anki_link.mod = str(note.mod)
 
-            updated_lines += (
-                heading.title_lines
-                + heading.anki_link.lines
-                + heading.other_content
-            )
+        updated_lines += (
+            heading.title_lines
+            + heading.anki_link.lines
+            + heading.other_content
+            + ["\n"]  # trailing newline before next heading
+        )
 
-        # print("=" * 80)
-        # print("Tags:", heading.tags)
-        # print("Content:\n", "".join(heading.verbatim_content))
+        # strip trailing empty lines from very end of file
+        while updated_lines and updated_lines[-1].strip() == "":
+            updated_lines.pop()
 
     write_markdown_file(filepath, updated_lines)
     col.close()
