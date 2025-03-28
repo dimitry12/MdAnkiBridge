@@ -2,6 +2,8 @@ from markdown_it import MarkdownIt
 import re
 import fire
 from urllib.parse import urlparse, parse_qs
+from typing import List, Optional, Tuple
+from pydantic import BaseModel, Field
 
 from anki.collection import Collection
 
@@ -23,6 +25,23 @@ def parse_tokens_with_positions(md_text):
     return tokens
 
 
+class Heading(BaseModel):
+    level: int
+    token_index: int
+    start_line: int
+    end_line: int
+    raw_content: str
+    stripped_content: str = ""
+    tags: List[str] = Field(default_factory=list)
+    verbatim_content: List[str] = Field(default_factory=list)
+    is_leaf: bool = False
+    content_start: Optional[int] = None
+    content_end: Optional[int] = None
+    anki_id: Optional[str] = None
+    anki_mod: Optional[str] = None
+    anki_link_lines: Optional[Tuple[int, int]] = None
+
+
 def extract_headings(tokens):
     headings = []
     for i, token in enumerate(tokens):
@@ -31,25 +50,24 @@ def extract_headings(tokens):
             inline_token = tokens[i + 1]
             if inline_token.type == "inline":
                 content = inline_token.content
-                heading = {
-                    "level": level,
-                    "token_index": i,
-                    "start_line": token.map[0],
-                    "end_line": token.map[1],
-                    "raw_content": content,  # Original heading content
-                    "strippped_content": None,
-                    "tags": [],
-                    "verbatim_content": [],  # added this property
-                }
-
+                
                 # Extract tags (#tag or #tag1/tag2)
-                heading["tags"] = re.findall(r"#([\w\d_\/]+)", content)
-                heading["tags"] = [tag.replace("/", "::") for tag in heading["tags"]]
+                tags = re.findall(r"#([\w\d_\/]+)", content)
+                tags = [tag.replace("/", "::") for tag in tags]
 
                 stripped_content = content
                 stripped_content = re.sub(r"{.*}", "", stripped_content)
                 stripped_content = re.sub(r"#([\w\d_\/]+)", "", stripped_content)
-                heading["stripped_content"] = stripped_content.strip()
+                
+                heading = Heading(
+                    level=level,
+                    token_index=i,
+                    start_line=token.map[0],
+                    end_line=token.map[1],
+                    raw_content=content,
+                    stripped_content=stripped_content.strip(),
+                    tags=tags
+                )
 
                 headings.append(heading)
     return headings
@@ -58,47 +76,47 @@ def extract_headings(tokens):
 def mark_leaf_headings(headings):
     """Add an 'is_leaf' flag to headings that have no child headings."""
     for idx, heading in enumerate(headings):
-        current_level = heading["level"]
+        current_level = heading.level
         # Assume leaf by default
-        heading["is_leaf"] = True
+        heading.is_leaf = True
         # Check if any subsequent heading is a child
         for next_heading in headings[idx + 1 :]:
-            if next_heading["level"] > current_level:
+            if next_heading.level > current_level:
                 # found child heading -> current not leaf
-                heading["is_leaf"] = False
+                heading.is_leaf = False
                 break
-            elif next_heading["level"] <= current_level:
+            elif next_heading.level <= current_level:
                 # sibling or higher-level heading encountered, move to next heading
                 break
     return headings
 
 
 def replace_heading_in_lines(lines, heading, new_text):
-    heading_markdown = "#" * heading["level"]
-    lines[heading["start_line"]] = f"{heading_markdown} {new_text}\n"
+    heading_markdown = "#" * heading.level
+    lines[heading.start_line] = f"{heading_markdown} {new_text}\n"
     return lines
 
 
 def attach_verbatim_content(lines, headings):
     total_lines = len(lines)
     for idx, heading in enumerate(headings):
-        content_start = heading["end_line"]
+        content_start = heading.end_line
         # Determine end line for content
         content_end = total_lines
         for next_heading in headings[idx + 1 :]:
-            # if next_heading["level"] <= heading["level"]:
-            #    content_end = next_heading["start_line"]
+            # if next_heading.level <= heading.level:
+            #    content_end = next_heading.start_line
             #    break
-            content_end = next_heading["start_line"]
+            content_end = next_heading.start_line
             break
 
         # # Only leaf headings get content
-        # if heading["is_leaf"]:
+        # if heading.is_leaf:
         #     # Extract lines verbatim, preserve whitespace, line endings.
-        #     heading["verbatim_content"] = lines[content_start:content_end]
-        heading["verbatim_content"] = lines[content_start:content_end]
-        heading["content_start"] = content_start
-        heading["content_end"] = content_end
+        #     heading.verbatim_content = lines[content_start:content_end]
+        heading.verbatim_content = lines[content_start:content_end]
+        heading.content_start = content_start
+        heading.content_end = content_end
     return headings
 
 
@@ -146,21 +164,21 @@ def find_anki_link(lines):
 
 def attach_anki_link(headings):
     for heading in headings:
-        anki_metadata = find_anki_link(heading["verbatim_content"])
+        anki_metadata = find_anki_link(heading.verbatim_content)
         if anki_metadata:
             first_heading_line_idx, last_heading_line_idx, anki_id, anki_mod = (
                 anki_metadata
             )
-            heading["anki_id"] = anki_id
-            heading["anki_mod"] = anki_mod
-            heading["anki_link_lines"] = (
-                first_heading_line_idx + heading["start_line"] + 1,
-                last_heading_line_idx + 1 + heading["start_line"] + 1,
+            heading.anki_id = anki_id
+            heading.anki_mod = anki_mod
+            heading.anki_link_lines = (
+                first_heading_line_idx + heading.start_line + 1,
+                last_heading_line_idx + 1 + heading.start_line + 1,
             )
         else:
-            heading["anki_id"] = None
-            heading["anki_mod"] = None
-            heading["anki_link_lines"] = None
+            heading.anki_id = None
+            heading.anki_mod = None
+            heading.anki_link_lines = None
 
     return headings
 
@@ -171,13 +189,13 @@ def get_heading_attributes(lines, heading):
 
     Args:
         lines: list of markdown file lines
-        heading: dict with 'start_line' indicating the heading position
+        heading: Heading object with 'start_line' indicating the heading position
 
     Returns:
         dict of attributes extracted from the heading
     """
     attr_dict = {}
-    line_idx = heading["start_line"]
+    line_idx = heading.start_line
     line = lines[line_idx]
 
     # TODO: preserve other non-key-value attributes
@@ -198,13 +216,13 @@ def set_heading_attributes(lines, heading, new_attrs):
 
     Args:
         lines: list of markdown file lines
-        heading: dict with 'start_line' indicating heading position
+        heading: Heading object with 'start_line' indicating heading position
         new_attrs: dict of attributes to insert/update in the heading
 
     Returns:
         Modified lines with updated attributes for the heading
     """
-    line_idx = heading["start_line"]
+    line_idx = heading.start_line
     line = lines[line_idx].rstrip("\n")
 
     # TODO: preserve other non-key-value attributes
@@ -236,81 +254,81 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
     headings = attach_verbatim_content(lines, headings)
     headings = attach_anki_link(headings)
 
-    updated_lines = lines[: headings[0]["start_line"]]
+    updated_lines = lines[: headings[0].start_line]
 
     for heading in headings:
-        if not heading["is_leaf"]:
-            updated_lines += lines[heading["start_line"] : heading["content_end"]]
+        if not heading.is_leaf:
+            updated_lines += lines[heading.start_line : heading.content_end]
 
-        if heading["anki_id"]:
-            print("Processing heading with sync_id:", heading["anki_id"])
+        if heading.anki_id:
+            print("Processing heading with sync_id:", heading.anki_id)
 
             try:
-                note = col.get_note(int(heading["anki_id"]))
+                note = col.get_note(int(heading.anki_id))
             except:
-                raise ValueError(f"Note with id {heading['anki_id']} not found in Anki")
+                raise ValueError(f"Note with id {heading.anki_id} not found in Anki")
 
-            if heading["anki_mod"] and note.mod > int(heading["anki_mod"]):
+            if heading.anki_mod and note.mod > int(heading.anki_mod):
                 print("    Note is newer in anki, skipping sync")
                 raise ValueError("Note is newer in anki, skipping sync")
             else:
-                if not heading["anki_mod"]:
+                if not heading.anki_mod:
                     print("    Note has no mod, syncing anyway")
 
-                print("    Syncing heading with sync_id:", heading["anki_id"])
-                note.fields[0] = heading["stripped_content"]
+                print("    Syncing heading with sync_id:", heading.anki_id)
+                note.fields[0] = heading.stripped_content
                 note.fields[1] = "".join(
-                    lines[heading["content_start"] : heading["anki_link_lines"][0]]
-                    + lines[heading["anki_link_lines"][1] : heading["content_end"]]
+                    lines[heading.content_start : heading.anki_link_lines[0]]
+                    + lines[heading.anki_link_lines[1] : heading.content_end]
                 )
 
-                note.tags = heading["tags"]
+                note.tags = heading.tags
                 col.update_note(note)
 
                 # re-read note to get updated mod
                 # anki updates mod iff content has changed
                 # (i.e. we can resync same content and anki doesn't advance mod)
-                note = col.get_note(int(heading["anki_id"]))
+                note = col.get_note(int(heading.anki_id))
 
-                if str(note.mod) == heading["anki_mod"]:
+                if str(note.mod) == heading.anki_mod:
                     print("    Note is unchanged")
-                heading["anki_mod"] = str(note.mod)
+                heading.anki_mod = str(note.mod)
 
             updated_lines += (
-                lines[heading["start_line"] : heading["anki_link_lines"][0]]
+                lines[heading.start_line : heading.anki_link_lines[0]]
                 + [
-                    f"[anki](mdankibridge://notes/?id={heading['anki_id']}&mod={heading['anki_mod']})\n\n"
+                    f"[anki](mdankibridge://notes/?id={heading.anki_id}&mod={heading.anki_mod})\n\n"
                 ]
-                + lines[heading["anki_link_lines"][1] : heading["content_end"]]
+                + lines[heading.anki_link_lines[1] : heading.content_end]
             )
         else:
             note = col.new_note(basic_model)
-            note.fields[0] = heading["stripped_content"]
+            note.fields[0] = heading.stripped_content
             note.fields[1] = "".join(
-                lines[heading["content_start"] : heading["content_end"]]
+                lines[heading.content_start : heading.content_end]
             )
-            note.tags = heading["tags"]
+            note.tags = heading.tags
             col.add_note(note, deck["id"])
-            heading["anki_id"] = str(note.id)
-            print("Syncing new heading with sync_id:", heading["anki_id"])
+            heading.anki_id = str(note.id)
+            print("Syncing new heading with sync_id:", heading.anki_id)
 
-            note = col.get_note(int(heading["anki_id"]))
+            note = col.get_note(int(heading.anki_id))
 
-            heading["anki_mod"] = str(note.mod)
+            heading.anki_mod = str(note.mod)
 
             updated_lines += (
-                lines[heading["start_line"] : heading["end_line"]]
+                lines[heading.start_line : heading.end_line]
                 + [
-                    f"\n[anki](mdankibridge://notes/?id={heading['anki_id']}&mod={heading['anki_mod']})\n"  # newline-separated
-                    + ("" if lines[heading["end_line"]].strip() == "" else "\n")
+                    f"\n[anki](mdankibridge://notes/?id={heading.anki_id}&mod={heading.anki_mod})\n"  # newline-separated
+                    + ("" if lines[heading.end_line].strip() == "" else "\n")
                 ]
-                + lines[heading["end_line"] : heading["content_end"]]
+                + lines[heading.end_line : heading.content_end]
             )
 
         # print("=" * 80)
-        # print("Header:", heading["raw_content"])
-        # print("Tags:", heading["tags"])
-        # print("Content:\n", "".join(heading["verbatim_content"]))
+        # print("Header:", heading.raw_content)
+        # print("Tags:", heading.tags)
+        # print("Content:\n", "".join(heading.verbatim_content))
 
     write_markdown_file(filepath, updated_lines)
     col.close()
