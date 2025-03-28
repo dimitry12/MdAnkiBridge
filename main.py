@@ -4,6 +4,7 @@ import fire
 from urllib.parse import urlparse, parse_qs
 from typing import List, Optional, Tuple
 from pydantic import BaseModel, Field
+from dataclasses import dataclass
 
 from anki.collection import Collection
 
@@ -25,6 +26,17 @@ def parse_tokens_with_positions(md_text):
     return tokens
 
 
+class AnkiLink(BaseModel):
+    id: str
+    mod: Optional[str] = None
+    line_start: Optional[int] = None
+    line_end: Optional[int] = None
+    
+    @property
+    def has_mod(self) -> bool:
+        return self.mod is not None
+
+
 class Heading(BaseModel):
     level: int
     heading_start: int
@@ -33,9 +45,7 @@ class Heading(BaseModel):
     tags: List[str] = Field(default_factory=list)
     is_leaf: bool = False
     heading_body_end: Optional[int] = None
-    anki_id: Optional[str] = None
-    anki_mod: Optional[str] = None
-    anki_link_lines: Optional[Tuple[int, int]] = None
+    anki_link: Optional[AnkiLink] = None
 
 
 def extract_headings(tokens):
@@ -101,7 +111,7 @@ def attach_verbatim_content(lines, headings):
     return headings
 
 
-def find_anki_link(lines):
+def find_anki_link(lines) -> Optional[Tuple[int, int, AnkiLink]]:
     anki_link_pattern = re.compile(r"\[anki\]\((mdankibridge://notes/[^\s]*)\)")
     matches = []
 
@@ -135,12 +145,12 @@ def find_anki_link(lines):
     if not id_params or not id_params[0]:
         raise ValueError("Anki link missing id parameter")
 
-    return (
-        matches[0][0],
-        matches[0][1],
-        id_params[0],
-        mod_params[0] if mod_params else None,
+    anki_link = AnkiLink(
+        id=id_params[0],
+        mod=mod_params[0] if mod_params else None
     )
+
+    return matches[0][0], matches[0][1], anki_link
 
 
 def attach_anki_link(lines, headings: list[Heading]):
@@ -148,19 +158,12 @@ def attach_anki_link(lines, headings: list[Heading]):
         content_lines = lines[heading.title_end : heading.heading_body_end]
         anki_metadata = find_anki_link(content_lines)
         if anki_metadata:
-            first_heading_line_idx, last_heading_line_idx, anki_id, anki_mod = (
-                anki_metadata
-            )
-            heading.anki_id = anki_id
-            heading.anki_mod = anki_mod
-            heading.anki_link_lines = (
-                first_heading_line_idx + heading.heading_start + 1,
-                last_heading_line_idx + 1 + heading.heading_start + 1,
-            )
+            first_heading_line_idx, last_heading_line_idx, anki_link = anki_metadata
+            anki_link.line_start = first_heading_line_idx + heading.title_end
+            anki_link.line_end = last_heading_line_idx + 1 + heading.title_end
+            heading.anki_link = anki_link
         else:
-            heading.anki_id = None
-            heading.anki_mod = None
-            heading.anki_link_lines = None
+            heading.anki_link = None
 
     return headings
 
@@ -242,26 +245,26 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
         if not heading.is_leaf:
             updated_lines += lines[heading.heading_start : heading.heading_body_end]
 
-        if heading.anki_id:
-            print("Processing heading with sync_id:", heading.anki_id)
+        if heading.anki_link:
+            print("Processing heading with sync_id:", heading.anki_link.id)
 
             try:
-                note = col.get_note(int(heading.anki_id))
+                note = col.get_note(int(heading.anki_link.id))
             except:
-                raise ValueError(f"Note with id {heading.anki_id} not found in Anki")
+                raise ValueError(f"Note with id {heading.anki_link.id} not found in Anki")
 
-            if heading.anki_mod and note.mod > int(heading.anki_mod):
+            if heading.anki_link.mod and note.mod > int(heading.anki_link.mod):
                 print("    Note is newer in anki, skipping sync")
                 raise ValueError("Note is newer in anki, skipping sync")
             else:
-                if not heading.anki_mod:
+                if not heading.anki_link.mod:
                     print("    Note has no mod, syncing anyway")
 
-                print("    Syncing heading with sync_id:", heading.anki_id)
+                print("    Syncing heading with sync_id:", heading.anki_link.id)
                 note.fields[0] = heading.title_text
                 note.fields[1] = "".join(
-                    lines[heading.title_end : heading.anki_link_lines[0]]
-                    + lines[heading.anki_link_lines[1] : heading.heading_body_end]
+                    lines[heading.title_end : heading.anki_link.line_start]
+                    + lines[heading.anki_link.line_end : heading.heading_body_end]
                 )
 
                 note.tags = heading.tags
@@ -270,18 +273,18 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
                 # re-read note to get updated mod
                 # anki updates mod iff content has changed
                 # (i.e. we can resync same content and anki doesn't advance mod)
-                note = col.get_note(int(heading.anki_id))
+                note = col.get_note(int(heading.anki_link.id))
 
-                if str(note.mod) == heading.anki_mod:
+                if heading.anki_link.mod and str(note.mod) == heading.anki_link.mod:
                     print("    Note is unchanged")
-                heading.anki_mod = str(note.mod)
+                heading.anki_link.mod = str(note.mod)
 
             updated_lines += (
-                lines[heading.heading_start : heading.anki_link_lines[0]]
+                lines[heading.heading_start : heading.anki_link.line_start]
                 + [
-                    f"[anki](mdankibridge://notes/?id={heading.anki_id}&mod={heading.anki_mod})\n\n"
+                    f"[anki](mdankibridge://notes/?id={heading.anki_link.id}&mod={heading.anki_link.mod})\n\n"
                 ]
-                + lines[heading.anki_link_lines[1] : heading.heading_body_end]
+                + lines[heading.anki_link.line_end : heading.heading_body_end]
             )
         else:
             note = col.new_note(basic_model)
@@ -291,17 +294,18 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
             )
             note.tags = heading.tags
             col.add_note(note, deck["id"])
-            heading.anki_id = str(note.id)
-            print("Syncing new heading with sync_id:", heading.anki_id)
+            
+            anki_link = AnkiLink(id=str(note.id))
+            heading.anki_link = anki_link
+            print("Syncing new heading with sync_id:", heading.anki_link.id)
 
-            note = col.get_note(int(heading.anki_id))
-
-            heading.anki_mod = str(note.mod)
+            note = col.get_note(int(heading.anki_link.id))
+            heading.anki_link.mod = str(note.mod)
 
             updated_lines += (
                 lines[heading.heading_start : heading.title_end]
                 + [
-                    f"\n[anki](mdankibridge://notes/?id={heading.anki_id}&mod={heading.anki_mod})\n"  # newline-separated
+                    f"\n[anki](mdankibridge://notes/?id={heading.anki_link.id}&mod={heading.anki_link.mod})\n"  # newline-separated
                     + ("" if lines[heading.title_end].strip() == "" else "\n")
                 ]
                 + lines[heading.title_end : heading.heading_body_end]

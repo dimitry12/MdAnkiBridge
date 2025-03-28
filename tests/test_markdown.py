@@ -65,8 +65,8 @@ def test_heading_ankilink(markdown_1_lines, markdown_1_tokens):
 
     leaf_headings = attach_anki_link(markdown_1_lines, leaf_headings[:3])
 
-    assert leaf_headings[0].anki_id == "1742583930452"
-    assert leaf_headings[0].anki_mod == "1742583944"
+    assert leaf_headings[0].anki_link.id == "1742583930452"
+    assert leaf_headings[0].anki_link.mod == "1742583944"
 
 
 def test_heading_ankilink_line_idx(markdown_1_lines, markdown_1_tokens):
@@ -77,7 +77,8 @@ def test_heading_ankilink_line_idx(markdown_1_lines, markdown_1_tokens):
 
     leaf_headings = attach_anki_link(markdown_1_lines, leaf_headings[:3])
 
-    assert leaf_headings[0].anki_link_lines == (14, 16)
+    assert leaf_headings[0].anki_link.line_start == 14
+    assert leaf_headings[0].anki_link.line_end == 16
 
 
 def test_heading_ankilink_nomod(markdown_1_lines, markdown_1_tokens):
@@ -88,8 +89,8 @@ def test_heading_ankilink_nomod(markdown_1_lines, markdown_1_tokens):
 
     leaf_headings = attach_anki_link(markdown_1_lines, leaf_headings[:3])
 
-    assert leaf_headings[2].anki_id == "1742583930452"
-    assert leaf_headings[2].anki_mod is None
+    assert leaf_headings[2].anki_link.id == "1742583930452"
+    assert leaf_headings[2].anki_link.mod is None
 
 
 def test_heading_ankilink_noid(markdown_1_lines, markdown_1_tokens):
