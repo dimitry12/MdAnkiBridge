@@ -4,7 +4,7 @@ from main import (
     parse_tokens_with_positions,
     extract_headings,
     mark_leaf_headings,
-    attach_verbatim_content,
+    find_heading_body_ends,
     attach_anki_link,
     Heading,
 )
@@ -40,7 +40,7 @@ def test_leaf_headings(markdown_1_tokens):
 def test_content_boundaries(markdown_1_lines, markdown_1_tokens):
     headings = extract_headings(markdown_1_tokens)
     headings = mark_leaf_headings(headings)
-    headings = attach_verbatim_content(markdown_1_lines, headings)
+    headings = find_heading_body_ends(markdown_1_lines, headings)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
     content_lines = markdown_1_lines[
@@ -62,7 +62,7 @@ def test_heading_tags(markdown_1_tokens):
 def test_heading_ankilink(markdown_1_lines, markdown_1_tokens):
     headings = extract_headings(markdown_1_tokens)
     headings = mark_leaf_headings(headings)
-    headings = attach_verbatim_content(markdown_1_lines, headings)
+    headings = find_heading_body_ends(markdown_1_lines, headings)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
     leaf_headings = attach_anki_link(markdown_1_lines, leaf_headings[:3])
@@ -74,7 +74,7 @@ def test_heading_ankilink(markdown_1_lines, markdown_1_tokens):
 def test_heading_ankilink_line_idx(markdown_1_lines, markdown_1_tokens):
     headings = extract_headings(markdown_1_tokens)
     headings = mark_leaf_headings(headings)
-    headings = attach_verbatim_content(markdown_1_lines, headings)
+    headings = find_heading_body_ends(markdown_1_lines, headings)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
     leaf_headings = attach_anki_link(markdown_1_lines, leaf_headings[:3])
@@ -89,7 +89,7 @@ def test_heading_ankilink_line_idx(markdown_1_lines, markdown_1_tokens):
 def test_heading_ankilink_nomod(markdown_1_lines, markdown_1_tokens):
     headings = extract_headings(markdown_1_tokens)
     headings = mark_leaf_headings(headings)
-    headings = attach_verbatim_content(markdown_1_lines, headings)
+    headings = find_heading_body_ends(markdown_1_lines, headings)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
     leaf_headings = attach_anki_link(markdown_1_lines, leaf_headings[:3])
@@ -101,7 +101,7 @@ def test_heading_ankilink_nomod(markdown_1_lines, markdown_1_tokens):
 def test_heading_ankilink_noid(markdown_1_lines, markdown_1_tokens):
     headings = extract_headings(markdown_1_tokens)
     headings = mark_leaf_headings(headings)
-    headings = attach_verbatim_content(markdown_1_lines, headings)
+    headings = find_heading_body_ends(markdown_1_lines, headings)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
     with pytest.raises(Exception):
@@ -111,7 +111,7 @@ def test_heading_ankilink_noid(markdown_1_lines, markdown_1_tokens):
 def test_heading_ankilink_multiple(markdown_1_lines, markdown_1_tokens):
     headings = extract_headings(markdown_1_tokens)
     headings = mark_leaf_headings(headings)
-    headings = attach_verbatim_content(markdown_1_lines, headings)
+    headings = find_heading_body_ends(markdown_1_lines, headings)
     leaf_headings = [heading for heading in headings if heading.is_leaf]
 
     with pytest.raises(Exception):

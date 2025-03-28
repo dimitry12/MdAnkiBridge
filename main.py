@@ -95,7 +95,7 @@ def mark_leaf_headings(headings):
     return headings
 
 
-def attach_verbatim_content(lines, headings):
+def find_heading_body_ends(lines, headings):
     total_lines = len(lines)
     for idx, heading in enumerate(headings):
         # Determine end line for content
@@ -233,7 +233,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
     tokens = parse_tokens_with_positions(md_text)
     headings = extract_headings(tokens)
     headings = mark_leaf_headings(headings)
-    headings = attach_verbatim_content(lines, headings)
+    headings = find_heading_body_ends(lines, headings)
     headings = attach_anki_link(lines, headings)
 
     updated_lines = lines[: headings[0].heading_start]
