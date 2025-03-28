@@ -1,3 +1,4 @@
 Makefile
 .python-version
 __pycache__/
+.aider*
