@@ -1,6 +1,8 @@
 from markdown_it import MarkdownIt
 import re
 import fire
+import glob
+import os
 from urllib.parse import urlparse, parse_qs
 from typing import List, Optional, Tuple
 from pydantic import BaseModel, Field
@@ -214,15 +216,15 @@ def split_body(lines, headings: list[Heading]):
     return headings
 
 
-def main(filepath: str, colpath: str, modelname: str, deckname: str):
-    col = Collection(colpath)
-
-    basic_model = col.models.by_name(modelname)
-    deck = col.decks.by_name(deckname)
-    col.decks.select(deck["id"])
-    col.decks.current()["mid"] = basic_model["id"]
-
+def process_file(filepath: str, col: Collection, basic_model, deck):
+    """Process a single markdown file and sync with Anki."""
+    print(f"Processing file: {filepath}")
+    
     lines, headings = parse_markdown_headings(filepath)
+    if not headings:
+        print(f"No headings found in {filepath}, skipping")
+        return
+        
     headings = split_body(lines, headings)
 
     # lines before first heading
@@ -299,6 +301,44 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
         updated_lines.pop()
 
     write_markdown_file(filepath, updated_lines)
+
+
+def main(filepath: str, colpath: str, modelname: str, deckname: str):
+    """
+    Process markdown files and sync with Anki.
+    
+    Args:
+        filepath: Path to markdown file(s). Can include glob patterns like "*.md" or "notes/*.md"
+        colpath: Path to Anki collection
+        modelname: Name of the Anki note model to use
+        deckname: Name of the Anki deck to use
+    """
+    col = Collection(colpath)
+
+    basic_model = col.models.by_name(modelname)
+    deck = col.decks.by_name(deckname)
+    col.decks.select(deck["id"])
+    col.decks.current()["mid"] = basic_model["id"]
+
+    # Handle glob patterns
+    if any(char in filepath for char in ['*', '?', '[', ']']):
+        filepaths = glob.glob(filepath)
+        if not filepaths:
+            print(f"No files found matching pattern: {filepath}")
+            col.close()
+            return
+        print(f"Found {len(filepaths)} files matching pattern: {filepath}")
+        for file_path in filepaths:
+            if os.path.isfile(file_path):
+                process_file(file_path, col, basic_model, deck)
+    else:
+        # Single file
+        if not os.path.isfile(filepath):
+            print(f"File not found: {filepath}")
+            col.close()
+            return
+        process_file(filepath, col, basic_model, deck)
+    
     col.close()
 
 
