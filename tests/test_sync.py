@@ -272,7 +272,7 @@ def test_entities_roundtrip(history_0_collection_path, md_2_entities_path):
 
     assert mdlines[1] == "\n", "Newline before the anki-link"
     assert mdlines[3] == "\n", "Newline after the anki-link"
-    assert mdlines[6] == "> `L&`\n"
+    assert mdlines[6] == """> `L&` "'"\n"""
     assert leaf_headings[0].anki_link.mod is not None
     old_md_mod = leaf_headings[0].anki_link.mod
 
@@ -287,7 +287,7 @@ def test_entities_roundtrip(history_0_collection_path, md_2_entities_path):
 
     assert mdlines[1] == "\n", "Newline before the anki-link"
     assert mdlines[3] == "\n", "Newline after the anki-link"
-    assert mdlines[6] == "> `L&`\n"
+    assert mdlines[6] == """> `L&` "'"\n"""
     new_md_mod = leaf_headings[0].anki_link.mod
     assert new_md_mod > old_md_mod
 
@@ -306,7 +306,7 @@ def test_entities_roundtrip(history_0_collection_path, md_2_entities_path):
 
     assert note is not None
     assert note.fields[0] == "heading title"
-    assert note.fields[1] == "quote:\n\n> `L&`\n\ncontent"
+    assert note.fields[1] == """quote:\n\n> `L&` "'"\n\ncontent"""
 
     col.close()
 
@@ -317,7 +317,7 @@ def test_entities_roundtrip(history_0_collection_path, md_2_entities_path):
 
     assert mdlines[1] == "\n", "Newline before the anki-link"
     assert mdlines[3] == "\n", "Newline after the anki-link"
-    assert mdlines[6] == "> `L&`\n"
+    assert mdlines[6] == """> `L&` "'"\n"""
     assert leaf_headings[0].anki_link.mod is not None
     assert leaf_headings[0].anki_link.mod == new_md_mod
     assert leaf_headings[0].title_text == "heading title"

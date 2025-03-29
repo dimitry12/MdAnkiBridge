@@ -4,6 +4,6 @@
 
 quote:
 
-> `L&`
+> `L&` "'"
 
 content
