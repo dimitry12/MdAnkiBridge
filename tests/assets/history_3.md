@@ -3,7 +3,3 @@
 [anki](mdankibridge://notes/?id=1743032558208&mod=1643032558)
 
 some content
-
-```python
-print('hello world')
-```

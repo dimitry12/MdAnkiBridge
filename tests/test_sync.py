@@ -6,7 +6,6 @@ from main import main
 from main import (
     parse_markdown_headings,
     split_body,
-    Heading,
 )
 
 current_dir = pathlib.Path(__file__).parent
@@ -136,7 +135,7 @@ def test_new_sync(history_0_collection_path, md_1_path):
     col.close()
 
 
-def test_md_update(history_0_collection_path, md_2_path):
+def test_md2anki_update(history_0_collection_path, md_2_path):
     colpath = str(history_0_collection_path)
     mdpath = str(md_2_path)
 
@@ -180,6 +179,62 @@ def test_md_update(history_0_collection_path, md_2_path):
     assert set(note.tags) == set("tag_a::tag_b tag_c".split())
 
     col.close()
+
+
+def test_anki2md_update(history_0_collection_path, md_3_path):
+    colpath = str(history_0_collection_path)
+    mdpath = str(md_3_path)
+
+    mdlines, headings = parse_markdown_headings(mdpath)
+    leaf_headings = [heading for heading in headings if heading.is_leaf]
+
+    leaf_headings = split_body(mdlines, leaf_headings)
+
+    assert mdlines[1] == "\n", "Newline before the anki-link"
+    assert mdlines[3] == "\n", "Newline after the anki-link"
+    assert leaf_headings[0].anki_link.mod is not None
+    old_md_mod = leaf_headings[0].anki_link.mod
+
+    main(
+        filepath=mdpath, colpath=colpath, modelname=starter_model, deckname=starter_deck
+    )
+
+    mdlines, headings = parse_markdown_headings(mdpath)
+    leaf_headings = [heading for heading in headings if heading.is_leaf]
+
+    leaf_headings = split_body(mdlines, leaf_headings)
+
+    assert mdlines[1] == "\n", "Newline before the anki-link"
+    assert mdlines[3] == "\n", "Newline after the anki-link"
+    assert leaf_headings[0].anki_link.mod > old_md_mod
+
+    col = Collection(colpath)
+
+    basic_model = col.models.by_name(starter_model)
+    deck = col.decks.by_name(starter_deck)
+    col.decks.select(deck["id"])
+    col.decks.current()["mid"] = basic_model["id"]
+
+    note = col.get_note(starter_note_id)
+
+    assert note is not None
+    assert note.fields[0] == "front"
+    assert note.fields[1] == "back"
+    assert set(note.tags) == set()
+
+    col.close()
+
+    mdlines, headings = parse_markdown_headings(mdpath)
+    leaf_headings = [heading for heading in headings if heading.is_leaf]
+
+    leaf_headings = split_body(mdlines, leaf_headings)
+
+    assert mdlines[1] == "\n", "Newline before the anki-link"
+    assert mdlines[3] == "\n", "Newline after the anki-link"
+    assert mdlines[4] == "back"
+    assert leaf_headings[0].anki_link.mod is not None
+    assert leaf_headings[0].anki_link.mod > old_md_mod
+    assert leaf_headings[0].title_text == "front"
 
 
 def test_md_unknown_id(history_0_collection_path, md_4_path):
