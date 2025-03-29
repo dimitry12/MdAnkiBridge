@@ -141,7 +141,6 @@ def test_new_sync(history_0_collection_path, md_1_path):
     assert note is not None
     assert note.fields[0] == "heading title"
     assert (
-        note.fields[1] == "\nsome content\n"
         note.fields[1] == "some content"
     ), "Anki-side of the synced note does not include the link to anki."
 
@@ -307,7 +306,7 @@ def test_entities_roundtrip(history_0_collection_path, md_2_entities_path):
 
     assert note is not None
     assert note.fields[0] == "heading title"
-    assert note.fields[1] == """quote:\n\n> `L&` "'"\n\ncontent"""
+    assert note.fields[1] == """quote:\n\n&gt; `L&amp;` "'"\n\ncontent"""
 
     col.close()
 

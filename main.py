@@ -6,6 +6,7 @@ import os
 from urllib.parse import urlparse, parse_qs
 from typing import List, Optional, Tuple
 from pydantic import BaseModel, Field
+import html
 
 from anki.collection import Collection
 
@@ -250,7 +251,9 @@ def process_file(filepath: str, col: Collection, basic_model, deck):
             if heading.anki_link.mod and note.mod > int(heading.anki_link.mod):
                 print("    Note is newer in anki, syncing md <- anki")
 
-                heading.other_content = normalize_lines(note.fields[1].split("\n"))
+                heading.other_content = normalize_lines(
+                    html.unescape(note.fields[1].split("\n"))
+                )
                 heading.anki_link.mod = str(note.mod)
                 heading.title_text = note.fields[0]
                 heading.tags = note.tags
@@ -260,7 +263,9 @@ def process_file(filepath: str, col: Collection, basic_model, deck):
 
                 print("    Syncing md -> anki")
                 note.fields[0] = heading.title_text
-                note.fields[1] = "".join(heading.other_content)
+                note.fields[1] = html.escape(
+                    "".join(heading.other_content), quote=False
+                )
 
                 note.tags = heading.tags
                 col.update_note(note)
@@ -277,9 +282,7 @@ def process_file(filepath: str, col: Collection, basic_model, deck):
         else:
             note = col.new_note(basic_model)
             note.fields[0] = heading.title_text
-            note.fields[1] = "".join(
-                lines[heading.title_end : heading.heading_body_end]
-            )
+            note.fields[1] = html.escape("".join(heading.other_content), quote=False)
             note.tags = heading.tags
             col.add_note(note, deck["id"])
 
