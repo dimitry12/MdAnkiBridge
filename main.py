@@ -219,12 +219,12 @@ def split_body(lines, headings: list[Heading]):
 def process_file(filepath: str, col: Collection, basic_model, deck):
     """Process a single markdown file and sync with Anki."""
     print(f"Processing file: {filepath}")
-    
+
     lines, headings = parse_markdown_headings(filepath)
     if not headings:
         print(f"No headings found in {filepath}, skipping")
         return
-        
+
     headings = split_body(lines, headings)
 
     # lines before first heading
@@ -238,10 +238,11 @@ def process_file(filepath: str, col: Collection, basic_model, deck):
 
         if heading.anki_link:
             print("Processing heading with sync_id:", heading.anki_link.id)
+            # TODO: what if note on anki-side is not BasicMarkdown - how to change?
 
             try:
                 note = col.get_note(int(heading.anki_link.id))
-            except:
+            except Exception:
                 raise ValueError(
                     f"Note with id {heading.anki_link.id} not found in Anki"
                 )
@@ -306,7 +307,7 @@ def process_file(filepath: str, col: Collection, basic_model, deck):
 def main(filepath: str, colpath: str, modelname: str, deckname: str):
     """
     Process markdown files and sync with Anki.
-    
+
     Args:
         filepath: Path to markdown file(s). Can include glob patterns like "*.md" or "notes/*.md"
         colpath: Path to Anki collection
@@ -321,7 +322,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
     col.decks.current()["mid"] = basic_model["id"]
 
     # Handle glob patterns
-    if any(char in filepath for char in ['*', '?', '[', ']']):
+    if any(char in filepath for char in ["*", "?", "[", "]"]):
         filepaths = glob.glob(filepath)
         if not filepaths:
             print(f"No files found matching pattern: {filepath}")
@@ -338,7 +339,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
             col.close()
             return
         process_file(filepath, col, basic_model, deck)
-    
+
     col.close()
 
 

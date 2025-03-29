@@ -2,3 +2,4 @@ Makefile
 .python-version
 __pycache__/
 .aider*
+test_anki_profile

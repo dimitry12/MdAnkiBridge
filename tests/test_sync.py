@@ -51,6 +51,18 @@ def md_2_path(tmp_path):
 
 
 @pytest.fixture
+def md_2_entities_path(tmp_path):
+    md = current_dir / "assets/history_2_entities.md"
+    md_path = tmp_path / "history_2_entities.md"
+
+    shutil.copy(md, md_path)
+
+    yield md_path
+
+    md_path.unlink()
+
+
+@pytest.fixture
 def md_3_path(tmp_path):
     md_3 = current_dir / "assets/history_3.md"
     md_path = tmp_path / "history_3.md"
@@ -199,15 +211,6 @@ def test_anki2md_update(history_0_collection_path, md_3_path):
         filepath=mdpath, colpath=colpath, modelname=starter_model, deckname=starter_deck
     )
 
-    mdlines, headings = parse_markdown_headings(mdpath)
-    leaf_headings = [heading for heading in headings if heading.is_leaf]
-
-    leaf_headings = split_body(mdlines, leaf_headings)
-
-    assert mdlines[1] == "\n", "Newline before the anki-link"
-    assert mdlines[3] == "\n", "Newline after the anki-link"
-    assert leaf_headings[0].anki_link.mod > old_md_mod
-
     col = Collection(colpath)
 
     basic_model = col.models.by_name(starter_model)
@@ -256,3 +259,69 @@ def test_md_unknown_id(history_0_collection_path, md_4_path):
             modelname=starter_model,
             deckname=starter_deck,
         )
+
+
+def test_entities_roundtrip(history_0_collection_path, md_2_entities_path):
+    colpath = str(history_0_collection_path)
+    mdpath = str(md_2_entities_path)
+
+    mdlines, headings = parse_markdown_headings(mdpath)
+    leaf_headings = [heading for heading in headings if heading.is_leaf]
+
+    leaf_headings = split_body(mdlines, leaf_headings)
+
+    assert mdlines[1] == "\n", "Newline before the anki-link"
+    assert mdlines[3] == "\n", "Newline after the anki-link"
+    assert mdlines[6] == "> `L&`\n"
+    assert leaf_headings[0].anki_link.mod is not None
+    old_md_mod = leaf_headings[0].anki_link.mod
+
+    main(
+        filepath=mdpath, colpath=colpath, modelname=starter_model, deckname=starter_deck
+    )
+
+    mdlines, headings = parse_markdown_headings(mdpath)
+    leaf_headings = [heading for heading in headings if heading.is_leaf]
+
+    leaf_headings = split_body(mdlines, leaf_headings)
+
+    assert mdlines[1] == "\n", "Newline before the anki-link"
+    assert mdlines[3] == "\n", "Newline after the anki-link"
+    assert mdlines[6] == "> `L&`\n"
+    new_md_mod = leaf_headings[0].anki_link.mod
+    assert new_md_mod > old_md_mod
+
+    main(
+        filepath=mdpath, colpath=colpath, modelname=starter_model, deckname=starter_deck
+    )
+
+    col = Collection(colpath)
+
+    basic_model = col.models.by_name(starter_model)
+    deck = col.decks.by_name(starter_deck)
+    col.decks.select(deck["id"])
+    col.decks.current()["mid"] = basic_model["id"]
+
+    note = col.get_note(starter_note_id)
+
+    assert note is not None
+    assert note.fields[0] == "heading title"
+    assert note.fields[1] == "quote:\n\n> `L&`\n\ncontent"
+
+    col.close()
+
+    mdlines, headings = parse_markdown_headings(mdpath)
+    leaf_headings = [heading for heading in headings if heading.is_leaf]
+
+    leaf_headings = split_body(mdlines, leaf_headings)
+
+    assert mdlines[1] == "\n", "Newline before the anki-link"
+    assert mdlines[3] == "\n", "Newline after the anki-link"
+    assert mdlines[6] == "> `L&`\n"
+    assert leaf_headings[0].anki_link.mod is not None
+    assert leaf_headings[0].anki_link.mod == new_md_mod
+    assert leaf_headings[0].title_text == "heading title"
+
+    # HTML-special characters are replaced with test_entities
+    # NOT at the time of writing to the DB, but when the note
+    # gets opened in the Anki app in any context.
