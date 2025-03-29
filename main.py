@@ -28,6 +28,21 @@ class AnkiLink(BaseModel):
         return [f"\n[anki](mdankibridge://notes/?id={self.id}{mod_param})\n\n"]
 
 
+def normalize_lines(lines):
+    while lines and lines[0].strip() == "":
+        lines.pop(0)
+    while lines and lines[-1].strip() == "":
+        lines.pop()
+
+    for idx, line in enumerate(lines):
+        lines[idx] = line.rstrip("\n") + "\n"
+
+    if lines:
+        lines[-1] = lines[-1].rstrip("\n")
+
+    return lines
+
+
 class Heading(BaseModel):
     level: int
     heading_start: int
@@ -194,15 +209,7 @@ def split_body(lines, headings: list[Heading]):
             heading.anki_link = None
             heading.other_content = content_lines
 
-        # strip leading and trailing empty lines from other content
-        while heading.other_content and heading.other_content[0].strip() == "":
-            heading.other_content.pop(0)
-
-        # strip leading and trailing empty lines from other content
-        while heading.other_content and heading.other_content[-1].strip() == "":
-            heading.other_content.pop()
-
-        heading.other_content[-1] = heading.other_content[-1].rstrip("\n")
+        heading.other_content = normalize_lines(heading.other_content)
 
     return headings
 
@@ -238,13 +245,17 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
                 )
 
             if heading.anki_link.mod and note.mod > int(heading.anki_link.mod):
-                print("    Note is newer in anki, skipping sync")
-                raise ValueError("Note is newer in anki, skipping sync")
+                print("    Note is newer in anki, syncing md <- anki")
+
+                heading.other_content = normalize_lines(note.fields[1].split("\n"))
+                heading.anki_link.mod = str(note.mod)
+                heading.title_text = note.fields[0]
+                heading.tags = note.tags
             else:
                 if not heading.anki_link.mod:
                     print("    Note has no mod, syncing anyway")
 
-                print("    Syncing heading with sync_id:", heading.anki_link.id)
+                print("    Syncing md -> anki")
                 note.fields[0] = heading.title_text
                 note.fields[1] = "".join(heading.other_content)
 
@@ -283,9 +294,9 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
             + ["\n", "\n"]  # trailing newline before next heading
         )
 
-        # strip trailing empty lines from very end of file
-        while updated_lines and updated_lines[-1].strip() == "":
-            updated_lines.pop()
+    # strip trailing empty lines from very end of file
+    while updated_lines and updated_lines[-1].strip() == "":
+        updated_lines.pop()
 
     write_markdown_file(filepath, updated_lines)
     col.close()
