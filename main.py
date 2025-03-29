@@ -280,7 +280,7 @@ def main(filepath: str, colpath: str, modelname: str, deckname: str):
             heading.title_lines
             + heading.anki_link.lines
             + heading.other_content
-            + ["\n"]  # trailing newline before next heading
+            + ["\n", "\n"]  # trailing newline before next heading
         )
 
         # strip trailing empty lines from very end of file
