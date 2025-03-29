@@ -175,7 +175,7 @@ def test_md_update(history_0_collection_path, md_2_path):
     assert note is not None
     assert note.fields[0] == "heading title"
     assert (
-        note.fields[1] == "some content\n"
+        note.fields[1] == "some content"
     ), "Anki-side of the synced note does not include the link to anki."
     assert set(note.tags) == set("tag_a::tag_b tag_c".split())
 

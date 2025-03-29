@@ -202,6 +202,8 @@ def split_body(lines, headings: list[Heading]):
         while heading.other_content and heading.other_content[-1].strip() == "":
             heading.other_content.pop()
 
+        heading.other_content[-1] = heading.other_content[-1].rstrip("\n")
+
     return headings
 
 
