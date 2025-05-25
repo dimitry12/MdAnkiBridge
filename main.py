@@ -219,7 +219,7 @@ def split_body(lines, headings: list[Heading]):
 
 def process_file(filepath: str, col: Collection, basic_model, deck):
     """Process a single markdown file and sync with Anki."""
-    print(f"Processing file: {filepath}")
+    # print(f"Processing file: {filepath}")
 
     lines, headings = parse_markdown_headings(filepath)
     if not headings:
@@ -238,8 +238,9 @@ def process_file(filepath: str, col: Collection, basic_model, deck):
             continue
 
         if heading.anki_link:
-            print("Processing heading with sync_id:", heading.anki_link.id)
+            # print("Processing heading with sync_id:", heading.anki_link.id)
             # TODO: what if note on anki-side is not BasicMarkdown - how to change?
+            # TODO: looks like anki autoescapes `$` into `\$`
 
             try:
                 note = col.get_note(int(heading.anki_link.id))
@@ -249,6 +250,8 @@ def process_file(filepath: str, col: Collection, basic_model, deck):
                 )
 
             if heading.anki_link.mod and note.mod > int(heading.anki_link.mod):
+                print(f"Processing file: {filepath}")
+                print("Processing heading with sync_id:", heading.anki_link.id)
                 print("    Note is newer in anki, syncing md <- anki")
 
                 heading.other_content = normalize_lines(
@@ -258,25 +261,42 @@ def process_file(filepath: str, col: Collection, basic_model, deck):
                 heading.title_text = note.fields[0]
                 heading.tags = note.tags
             else:
-                if not heading.anki_link.mod:
-                    print("    Note has no mod, syncing anyway")
+                is_diff = False
 
-                print("    Syncing md -> anki")
-                note.fields[0] = heading.title_text
-                note.fields[1] = html.escape(
+                if heading.title_text != note.fields[0]:
+                    note.fields[0] = heading.title_text
+                    is_diff = True
+
+                escaped_content = html.escape(
                     "".join(heading.other_content), quote=False
                 )
+                if escaped_content != note.fields[1]:
+                    note.fields[1] = escaped_content
+                    is_diff = True
 
-                note.tags = heading.tags
-                col.update_note(note)
+                if set(heading.tags) != set(note.tags):
+                    note.tags = heading.tags
+                    is_diff = True
+
+                if is_diff:
+                    col.update_note(note)
+
+                    if heading.anki_link.mod and str(note.mod) == heading.anki_link.mod:
+                        pass
+                        # print("    Note is unchanged")
+                    else:
+                        print(f"Processing file: {filepath}")
+                        print("Processing heading with sync_id:", heading.anki_link.id)
+                        if not heading.anki_link.mod:
+                            print("    Note has no mod, syncing anyway")
+                        print("    Syncing md -> anki")
 
                 # re-read note to get updated mod
                 # anki updates mod iff content has changed
                 # (i.e. we can resync same content and anki doesn't advance mod)
+                # also will get mod if we don't have mod on md side
                 note = col.get_note(int(heading.anki_link.id))
 
-                if heading.anki_link.mod and str(note.mod) == heading.anki_link.mod:
-                    print("    Note is unchanged")
                 heading.anki_link.mod = str(note.mod)
 
         else:
@@ -288,7 +308,9 @@ def process_file(filepath: str, col: Collection, basic_model, deck):
 
             anki_link = AnkiLink(id=str(note.id))
             heading.anki_link = anki_link
-            print("Syncing new heading with sync_id:", heading.anki_link.id)
+            print(f"Processing file: {filepath}")
+            print("    Syncing new heading with sync_id:", heading.anki_link.id)
+            print("    Syncing md -> anki")
 
             note = col.get_note(int(heading.anki_link.id))
             heading.anki_link.mod = str(note.mod)
