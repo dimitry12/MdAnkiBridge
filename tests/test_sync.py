@@ -306,7 +306,8 @@ def test_entities_roundtrip(history_0_collection_path, md_2_entities_path):
 
     assert note is not None
     assert note.fields[0] == "heading title"
-    assert note.fields[1] == """quote:\n\n&gt; `L&amp;` "'"\n\ncontent"""
+    # assert note.fields[1] == """quote:\n\n&gt; `L&amp;` "'"\n\ncontent"""
+    assert note.fields[1] == """quote:\n\n> `L&` "'"\n\ncontent"""
 
     col.close()
 

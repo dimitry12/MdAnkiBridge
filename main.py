@@ -217,6 +217,16 @@ def split_body(lines, headings: list[Heading]):
     return headings
 
 
+def find_unescape_fixed_point(text: str) -> str:
+    while True:
+        unescaped_text = html.unescape(text)
+        if unescaped_text == text:
+            break
+        text = unescaped_text
+
+    return text
+
+
 def process_file(filepath: str, col: Collection, basic_model, deck):
     """Process a single markdown file and sync with Anki."""
     # print(f"Processing file: {filepath}")
@@ -237,6 +247,10 @@ def process_file(filepath: str, col: Collection, basic_model, deck):
             updated_lines += lines[heading.heading_start : heading.heading_body_end]
             continue
 
+        heading.other_content = normalize_lines(
+            find_unescape_fixed_point("".join(heading.other_content)).split("\n")
+        )
+
         if heading.anki_link:
             # print("Processing heading with sync_id:", heading.anki_link.id)
             # TODO: what if note on anki-side is not BasicMarkdown - how to change?
@@ -254,8 +268,12 @@ def process_file(filepath: str, col: Collection, basic_model, deck):
                 print("Processing heading with sync_id:", heading.anki_link.id)
                 print("    Note is newer in anki, syncing md <- anki")
 
+                # this will run even if anki has only done escaping, which
+                # effectively results in no change other than mod. We still
+                # want to update the heading with the new mod.
+
                 heading.other_content = normalize_lines(
-                    html.unescape(note.fields[1].split("\n"))
+                    find_unescape_fixed_point(note.fields[1]).split("\n")
                 )
                 heading.anki_link.mod = str(note.mod)
                 heading.title_text = note.fields[0]
@@ -271,7 +289,7 @@ def process_file(filepath: str, col: Collection, basic_model, deck):
                     "".join(heading.other_content), quote=False
                 )
                 if escaped_content != note.fields[1]:
-                    note.fields[1] = escaped_content
+                    note.fields[1] = "".join(heading.other_content)
                     is_diff = True
 
                 if set(heading.tags) != set(note.tags):
@@ -302,7 +320,7 @@ def process_file(filepath: str, col: Collection, basic_model, deck):
         else:
             note = col.new_note(basic_model)
             note.fields[0] = heading.title_text
-            note.fields[1] = html.escape("".join(heading.other_content), quote=False)
+            note.fields[1] = "".join(heading.other_content)
             note.tags = heading.tags
             col.add_note(note, deck["id"])
 
